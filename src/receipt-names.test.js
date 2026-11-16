@@ -24,3 +24,12 @@ test('sugere setores habilitados para abreviações e produtos conhecidos',()=>{
  assert.equal(suggestSector('FAROFA YOKI 400G TRA',sectors),'Mercearia');
  assert.equal(suggestSector('Farofa',['Bebidas','Sem setor']),'Sem setor');
 });
+
+test('expande mussarela, pipoca e abreviações comuns sem adivinhar variantes',()=>{
+ const name=raw=>receiptName(raw,[],[]);
+ assert.equal(name('MUSS PIRAC FAT 500G'),'Queijo mussarela fatiado - Piracanjuba 500g');
+ assert.equal(name('POPCOR YOK 100G CINE'),'Pipoca de micro-ondas sabor manteiga de cinema - Yoki 100g');
+ assert.equal(name('POPCOR YOK 100G DOCE'),'POPCOR YOK 100G DOCE');
+ assert.equal(name('CEBOLA NAC kg'),'Cebola nacional');
+ assert.equal(name('EXTR TOM 300G'),'Extrato de tomate 300g');
+});
