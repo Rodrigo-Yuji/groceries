@@ -1,4 +1,5 @@
 import './style.css';
+import {appURL,invitationURL,pendingInvitation,clearInvitation,authMessage,changePassword} from './account.js';
 import {createIcons,icons} from 'lucide';
 import {normalize,money,number,suggestSector,purchaseItem,finishPurchase,unitPrice,parseReceipt,receiptFingerprint} from './domain.js';
 import {state,session,supabase,records,get,put,remove,sectors,setSectors,persist,onChange,initialize,createHouse,joinHouse,logout,sync,batch,resolveConflict,listHouses,connectHousehold,manageHouse} from './store.js';
@@ -20,7 +21,7 @@ function empty(title,text,action){return `<div class="empty">${icon('shopping-ba
 function app(){
  const active=nav.find(n=>n[0]===page);const items=records('item'),pending=items.filter(i=>i.bought<i.quantity),bought=items.filter(i=>i.bought>0);
  const status=!navigator.onLine?'Sem internet':state.household?(session.status==='syncing'?'Sincronizando':session.status==='error'?'Sincronização pendente':state.queue.length?'Alterações pendentes':'Casa conectada'):'Neste aparelho';
- $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="#" aria-label="Groceries, início"><span class="brand-icon">${icon('shopping-basket')}</span><span>Groceries</span></a><div class="sidebar-caption">MENOS ESQUECIMENTO. MAIS TEMPO.</div><nav>${nav.map(([key,ic,title])=>`<button data-page="${key}" class="nav-item ${page===key?'active':''}">${icon(ic)}<span>${title}</span>${key==='list'?`<b>${pending.length}</b>`:''}</button>`).join('')}</nav><div class="sidebar-bottom"><div class="little-illustration">${icon('sprout')}<strong>Uma casa, uma lista.</strong><p>Todo mundo pede.<br>Você compra com tranquilidade.</p></div><button class="house-switch" data-action="house">${icon('house')}<span><strong>${esc(state.household?.name||'Minha casa')}</strong><small>${state.household?'Lista compartilhada':'Modo local · sem cadastro'}</small></span>${icon('chevron-right')}</button></div></aside><main><header class="topbar"><span class="breadcrumb">Minha casa <span>/</span> ${active[2]}</span><div class="top-actions"><button class="sync-pill ${session.status==='error'?'warn':''}" data-action="sync">${icon(!navigator.onLine?'wifi-off':state.household?'cloud-check':'hard-drive')}<span>${status}</span></button><button class="avatar" data-action="account" aria-label="Minha conta">${esc((state.name||session.user?.email||'V').charAt(0).toUpperCase())}</button></div></header><div class="content"><div class="page-heading"><div><div class="eyebrow">${page==='list'?'DO PEDIDO AO CARRINHO':'GROCERIES'}</div><h1>${page==='list'?'O que a casa precisa?':active[2]}</h1><p>${({list:'A lista da casa, os preços e as compras em um só lugar.',products:'Seus produtos de sempre, prontos para a próxima compra.',history:'Cada ida ao mercado, guardada em um só lugar.',prices:'Saiba quanto pagou. Compare com mais clareza.',settings:'Deixe o Groceries do seu jeito.'})[page]}</p></div><div class="heading-actions">${page==='list'?button('Ler cupom','receipt','scan-line','secondary')+button(state.shopping?'Encerrar ida':'Começar ida','shopping','shopping-cart','secondary')+button('Adicionar item','add','plus'):page==='products'?button('Novo produto','product','plus'):page==='history'?button('Importar cupom','receipt','scan-line'):''}</div></div>${session.error?`<div class="notice">${icon('cloud-off')}<span>${esc(session.error)}</span><button data-page="settings">Ver configuração</button></div>`:''}${state.conflicts.length?`<div class="notice">${icon('git-compare-arrows')}<span>${state.conflicts.length} alteração(ões) precisam de revisão porque outra pessoa editou o mesmo item.</span><button data-action="conflicts">Revisar</button></div>`:''}${({list:renderList,products:renderProducts,history:renderHistory,prices:renderPrices,settings:renderSettings})[page]()}</div><footer>Groceries <span>Uma rotina mais leve começa aqui.</span></footer></main><nav class="mobile-nav">${nav.map(([key,ic,title])=>`<button data-page="${key}" class="${page===key?'active':''}" aria-label="${title}">${icon(ic)}<span>${key==='list'?'Lista':key==='settings'?'Ajustes':title.replace('Meus ','')}</span></button>`).join('')}</nav>`;
+ $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="#" aria-label="Groceries, início"><span class="brand-icon">${icon('shopping-basket')}</span><span>Groceries</span></a><div class="sidebar-caption">MENOS ESQUECIMENTO. MAIS TEMPO.</div><nav>${nav.map(([key,ic,title])=>`<button data-page="${key}" class="nav-item ${page===key?'active':''}">${icon(ic)}<span>${title}</span>${key==='list'?`<b>${pending.length}</b>`:''}</button>`).join('')}</nav><div class="sidebar-bottom"><div class="little-illustration">${icon('sprout')}<strong>Uma casa, uma lista.</strong><p>Todo mundo pede.<br>Você compra com tranquilidade.</p></div><button class="house-switch" data-action="house">${icon('house')}<span><strong>${esc(state.household?.name||'Minha casa')}</strong><small>${state.household?'Lista compartilhada':'Modo local · sem cadastro'}</small></span>${icon('chevron-right')}</button></div></aside><main><header class="topbar"><span class="breadcrumb">Minha casa <span>/</span> ${active[2]}</span><div class="top-actions"><button class="sync-pill ${session.status==='error'?'warn':''}" data-action="sync">${icon(!navigator.onLine?'wifi-off':state.household?'cloud-check':'hard-drive')}<span>${status}</span></button><button class="avatar" data-action="account" aria-label="Minha conta">${icon('user-round')}</button></div></header><div class="content"><div class="page-heading"><div><div class="eyebrow">${page==='list'?'DO PEDIDO AO CARRINHO':'GROCERIES'}</div><h1>${page==='list'?'O que a casa precisa?':active[2]}</h1><p>${({list:'A lista da casa, os preços e as compras em um só lugar.',products:'Seus produtos de sempre, prontos para a próxima compra.',history:'Cada ida ao mercado, guardada em um só lugar.',prices:'Saiba quanto pagou. Compare com mais clareza.',settings:'Deixe o Groceries do seu jeito.'})[page]}</p></div><div class="heading-actions">${page==='list'?button('Ler cupom','receipt','scan-line','secondary')+button(state.shopping?'Encerrar ida':'Começar ida','shopping','shopping-cart','secondary')+button('Adicionar item','add','plus'):page==='products'?button('Novo produto','product','plus'):page==='history'?button('Importar cupom','receipt','scan-line'):''}</div></div>${session.error?`<div class="notice">${icon('cloud-off')}<span>${esc(session.error)}</span><button data-page="settings">Ver configuração</button></div>`:''}${state.conflicts.length?`<div class="notice">${icon('git-compare-arrows')}<span>${state.conflicts.length} alteração(ões) precisam de revisão porque outra pessoa editou o mesmo item.</span><button data-action="conflicts">Revisar</button></div>`:''}${({list:renderList,products:renderProducts,history:renderHistory,prices:renderPrices,settings:renderSettings})[page]()}</div><footer>Groceries <span>Uma rotina mais leve começa aqui.</span></footer></main><nav class="mobile-nav">${nav.map(([key,ic,title])=>`<button data-page="${key}" class="${page===key?'active':''}" aria-label="${title}">${icon(ic)}<span>${key==='list'?'Lista':key==='settings'?'Ajustes':title.replace('Meus ','')}</span></button>`).join('')}</nav>`;
  renderIcons();bind();
 }
 function renderList(){
@@ -77,33 +78,104 @@ function confirmDialog(title,text,fn){showModal(title,`<p>${esc(text)}</p><div c
 function purchaseDialog(p){showModal(p.market,`<p class="muted">${dateLabel(p.date)} · ${p.lines.length} produtos</p><div class="purchase-lines">${p.lines.map((l,idx)=>`<label class="history-line"><input type="checkbox" name="repeat" value="${idx}"><span><strong>${esc(l.name)}</strong><small>${l.quantity} ${esc(l.unit||'un')} × ${priceLabel(l.price)}</small></span><strong>${priceLabel(l.total)}</strong><button class="icon-btn" data-price-edit="${idx}" aria-label="Corrigir preço de ${esc(l.name)}">${icon('pencil')}</button></label>`).join('')}</div><div class="summary-total"><strong>Total</strong><strong>${money(p.total)}</strong></div><div class="modal-actions"><button class="secondary" id="select-all">Selecionar todos</button><button class="primary" id="repeat-purchase">${icon('plus')}Adicionar selecionados à lista</button></div>`,true);$('#select-all').onclick=()=>document.querySelectorAll('[name=repeat]').forEach(el=>el.checked=true);$('#repeat-purchase').onclick=()=>{const selected=[...document.querySelectorAll('[name=repeat]:checked')].map(e=>p.lines[+e.value]);if(!selected.length)return toast('Selecione os produtos que quer comprar novamente.');for(const l of selected){const existing=records('item').find(i=>normalize(i.name)===normalize(l.name)&&i.unit===l.unit);if(!existing)put('item',{...l,id:undefined,quantity:l.quantity,bought:0,createdAt:Date.now(),requester:state.name||'Você'});}closeModal();page='list';app();toast('Produtos adicionados. Os que já estavam na lista foram mantidos.');};document.querySelectorAll('[data-price-edit]').forEach(el=>el.onclick=e=>{e.preventDefault();priceEdit(p,+el.dataset.priceEdit);});}
 function priceEdit(p,idx){const l=p.lines[idx];showModal('Corrigir preço',`<form id="price-edit"><p>${esc(l.name)}</p><label>Preço por ${esc(l.unit||'un')}<input name="price" type="number" min="0" max="1000000" step="0.01" value="${l.price??''}" required></label><label>Marca / apresentação<input name="presentation" maxlength="120" value="${esc(l.presentation)}"></label><div class="form-row"><label>Tamanho da embalagem<input name="size" type="number" min="0.001" step="0.001" value="${l.size||1}" required></label><label>Unidade<select name="packUnit">${units(l.packUnit||l.unit||'un')}</select></label></div><div class="modal-actions"><button class="primary">Salvar correção</button></div></form>`);$('#price-edit').onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const lines=p.lines.map((v,i)=>i===idx?{...v,...f,price:number(f.price),size:number(f.size),total:Math.round(number(f.price)*v.quantity*100)/100}:v);put('purchase',{...p,lines,total:lines.reduce((s,l)=>s+l.total,0)});closeModal();toast('Preço corrigido.');};}
 
-function accountDialog() {
- if (session.user) {
-  showModal('Minha conta', `<p>${esc(session.user.email)}</p><p id="account-error" role="alert"></p><button class="secondary" id="sign-out">Sair</button>`);
-  $('#sign-out').onclick = async () => {
-   try { await logout(); closeModal(); } catch (error) { $('#account-error').textContent = error.message; }
+function accountDialog(mode='login',message='',email=''){
+ if(session.user&&!['reset','register'].includes(mode)){
+  showModal('Minha conta',`<p>${esc(session.user.email)}</p><p id="account-error" role="alert"></p><div class="modal-actions"><button class="secondary" id="sign-out">Sair</button><button class="primary" id="change-password">Alterar senha</button></div>`);
+  $('#change-password').onclick=()=>passwordDialog(false);
+  $('#sign-out').onclick=async()=>{
+   try{await logout();closeModal();}catch(error){const status=$('#account-error');if(status)status.textContent=error.message;}
   };
   return;
  }
- showModal('Entrar na conta', '<form id="account-form"><label>E-mail<input type="email" name="email" required autocomplete="email"></label><p id="account-error" role="status"></p><button class="primary">Enviar link de acesso</button></form>');
- $('#account-form').onsubmit = async event => {
+ const reset=mode==='reset',register=mode==='register';
+ const title=reset?'Esqueci minha senha':register?'Criar conta':'Entrar';
+ const password=reset?'':`<label>Senha<input type="password" name="password" autocomplete="${register?'new-password':'current-password'}" ${register?'minlength="8"':''} required></label>`;
+ showModal(title,`<form id="account-form"><label>E-mail<input type="email" name="email" value="${esc(email)}" required autocomplete="email"></label>${password}<p id="account-error" role="status">${esc(message)}</p><button class="primary" type="submit">${reset?'Enviar link de recuperação':title}</button></form><div class="modal-actions">${!reset&&!register?'<button class="text-btn" id="forgot-password">Esqueci minha senha</button><button class="secondary" id="register-account">Criar conta</button>':'<button class="text-btn" id="back-to-login">Voltar para entrar</button>'}</div>`);
+ const form=$('#account-form'),status=$('#account-error'),submit=form.querySelector('button');
+ const emailValue=()=>form.elements.email.value.trim();
+ $('#forgot-password')?.addEventListener('click',()=>accountDialog('reset','',emailValue()));
+ $('#register-account')?.addEventListener('click',()=>accountDialog('register','',emailValue()));
+ $('#back-to-login')?.addEventListener('click',()=>accountDialog('login','',emailValue()));
+ form.onsubmit=async event=>{
   event.preventDefault();
-  const form = event.currentTarget;
-  const {error} = await supabase.auth.signInWithOtp({email:new FormData(form).get('email'),options:{emailRedirectTo:new URL(import.meta.env.BASE_URL,location.origin).href}});
-  $('#account-error').textContent = error?.message || 'Confira seu e-mail para entrar.';
+  submit.disabled=true;
+  try{
+   const email=emailValue();
+   const url=appURL();
+   if(reset){
+    url.searchParams.set('recuperar','1');
+    const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:url.href});
+    if(error)throw error;
+    status.textContent='Se houver uma conta para este e-mail, enviaremos um link para redefinir a senha.';
+   }else if(register){
+    const {data,error}=await supabase.auth.signUp({email,password:form.elements.password.value,options:{emailRedirectTo:url.href}});
+    if(error)throw error;
+    if(data.session){if(form.isConnected)closeModal();}
+    else status.textContent='Confira seu e-mail para confirmar a conta. Se já tiver cadastro, entre ou recupere a senha.';
+   }else{
+    const {error}=await supabase.auth.signInWithPassword({email,password:form.elements.password.value});
+    if(error)throw error;
+    if(form.isConnected)closeModal();
+   }
+  }catch(error){status.textContent=authMessage(error);}
+  finally{submit.disabled=false;}
  };
+}
+function cleanRecoveryURL(){
+ const url=new URL(location.href);
+ url.searchParams.delete('recuperar');
+ url.hash='';
+ history.replaceState(history.state,'',url.href);
+}
+function passwordDialog(recovery){
+ showModal(recovery?'Redefinir senha':'Alterar senha',`<form id="password-form">${recovery?'':'<label>Senha atual<input type="password" name="current" required autocomplete="current-password"></label>'}<label>Nova senha<input type="password" name="password" minlength="8" required autocomplete="new-password"></label><label>Confirme a nova senha<input type="password" name="confirm" minlength="8" required autocomplete="new-password"></label><p id="password-status" role="alert"></p><button class="primary">Salvar nova senha</button></form>`);
+ const form=$('#password-form'),status=$('#password-status'),submit=form.querySelector('button');
+ form.onsubmit=async event=>{
+  event.preventDefault();
+  const password=form.elements.password.value;
+  if(password!==form.elements.confirm.value){status.textContent='As duas senhas precisam ser iguais.';return;}
+  submit.disabled=true;
+  try{
+   await changePassword(recovery?null:form.elements.current.value,password);
+   if(recovery)cleanRecoveryURL();
+   if(form.isConnected)closeModal();
+   toast('Senha atualizada.');
+   if(pendingInvitation())void houseDialog();
+  }catch(error){status.textContent=authMessage(error);}
+  finally{submit.disabled=false;}
+ };
+}
+function renderHouseInvite(result){
+ const status=$('#invite-code');
+ if(!status)return;
+ status.replaceChildren();
+ if(!result.code){status.textContent='Convite revogado.';return;}
+ const url=invitationURL(result.code);
+ const label=document.createElement('label');
+ label.textContent='Link de convite · válido por 7 dias';
+ const input=Object.assign(document.createElement('input'),{type:'text',value:url,readOnly:true});
+ input.onclick=()=>input.select();
+ label.append(input);
+ const copy=Object.assign(document.createElement('button'),{className:'secondary',textContent:'Copiar link'});
+ copy.onclick=async()=>{
+  try{await navigator.clipboard.writeText(url);toast('Link copiado.');}
+  catch{input.select();toast('Selecione e copie o link.');}
+ };
+ status.append(label,copy);
 }
 async function houseDialog() {
  if (!session.user) return accountDialog();
  const active = state.household;
+ const invitation=pendingInvitation();
  showModal('Casas', '<div id="house-details"></div><form id="create-house"><label>Nome da casa<input name="value" maxlength="100" required></label><button class="primary">Criar casa</button></form><form id="join-house"><label>Código de convite<input name="value" required></label><button class="secondary">Entrar na casa</button></form><p id="house-error" role="status"></p>');
  const pane = $('#house-details');
+ if(invitation)$('#join-house input').value=invitation;
  const showError = error => { const status=$('#house-error'); if(status)status.textContent=error.message; };
  for (const [selector,action] of [['#create-house',createHouse],['#join-house',joinHouse]]) {
   $(selector).onsubmit = async event => {
    event.preventDefault();
    if(state.queue.length)return showError(Error('Sincronize a lista antes de trocar de casa.'));
-   try { await action(new FormData(event.currentTarget).get('value')); if(pane.isConnected)void houseDialog(); }
+   try { await action(new FormData(event.currentTarget).get('value')); if(action===joinHouse)clearInvitation(); if(pane.isConnected)void houseDialog(); }
    catch (error) { showError(error); }
   };
  }
@@ -138,7 +210,7 @@ async function houseDialog() {
    const inviteButton=document.createElement('button');
    inviteButton.className='secondary';
    inviteButton.textContent=label;
-   inviteButton.onclick=async()=>{try{const result=await manageHouse(action);$('#invite-code').textContent=result.code||'Convite revogado.';}catch(error){showError(error);}};
+   inviteButton.onclick=async()=>{try{const result=await manageHouse(action);renderHouseInvite(result);}catch(error){showError(error);}};
    pane.append(inviteButton);
   }
  } catch(error){showError(error);}
@@ -279,7 +351,19 @@ window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();ins
 window.addEventListener('keydown',event=>{if(event.key==='Escape'&&!modalBusy)closeModal();});
 onChange(app);
 app();
-void initialize().catch(error=>toast(error.message));
+const incomingInvite=pendingInvitation();
+const recoveryReturn=new URLSearchParams(location.search).has('recuperar');
+let recoveryOpened=false;
+void initialize((event,next)=>{
+ if(event==='PASSWORD_RECOVERY'&&next){recoveryOpened=true;passwordDialog(true);}
+ if(event==='SIGNED_IN'&&next&&pendingInvitation()&&!recoveryReturn&&!recoveryOpened)void houseDialog();
+}).then(()=>{
+ if(incomingInvite&&!recoveryOpened&&!recoveryReturn)void houseDialog();
+ if(recoveryReturn&&!recoveryOpened&&location.hash.includes('error=')){
+  cleanRecoveryURL();
+  accountDialog('reset','O link expirou ou já foi usado. Solicite outro.');
+ }
+}).catch(error=>toast(error.message));
 
 if(import.meta.env.PROD&&'serviceWorker' in navigator){
  window.addEventListener('load',()=>{void navigator.serviceWorker.register(import.meta.env.BASE_URL+'sw.js').catch(error=>console.error('Falha ao ativar modo offline',error));});

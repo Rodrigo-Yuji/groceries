@@ -103,3 +103,7 @@ fieldset{border:1px solid var(--border);border-radius:10px;min-width:0}
  .form-row{grid-template-columns:1fr}
  .tabs button{font-size:.82rem}
 }
+.topbar{padding-inline:4%;padding-right:max(4%,calc((100% - 1450px)/2 + 58px))}
+.avatar{width:44px;padding-inline:0}
+#invite-code label{display:grid;gap:6px;margin-bottom:8px}
+@media(min-width:721px){.topbar{padding-right:max(calc(4% + 16px),calc((100% - 1450px)/2 + 58px))}}

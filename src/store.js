@@ -189,10 +189,16 @@ async function useAccount(user,importGuest=false){
  const houses=await listHouses();
  if(epoch===generation&&houses.length)await connectHousehold(houses[0].id);
 }
-export async function initialize(){
+export async function initialize(onAuthEvent=()=>{}){
+ supabase.auth.onAuthStateChange((event,next)=>{
+  setTimeout(async()=>{
+   try { await useAccount(next?.user||null,event==='SIGNED_IN'); }
+   catch(error){session.error=fail(error);callback();}
+   onAuthEvent(event,next);
+  },0);
+ });
  const {data:{session:auth}}=await supabase.auth.getSession();
  await useAccount(auth?.user||null).catch(error=>{session.error=fail(error);callback();});
- supabase.auth.onAuthStateChange((event,next)=>{setTimeout(()=>void useAccount(next?.user||null,event==='SIGNED_IN').catch(error=>{session.error=fail(error);callback();}),0);});
  window.addEventListener('online',()=>{callback();void sync();});
  window.addEventListener('offline',callback);
  setInterval(()=>{if(document.visibilityState==='visible')void sync();},15000);

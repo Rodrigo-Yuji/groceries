@@ -10,9 +10,9 @@ Use Node.js 24. Execute `npm ci`, `npm test` e `npm run dev`. Para verificar a v
 
 O frontend usa a URL e a chave pública do projeto Groceries. Aplique as migrações de `supabase/migrations` em um projeto vazio ou compatível. O teste SQL em `supabase/tests/isolation.sql` cria duas contas sintéticas dentro de uma transação revertida e verifica isolamento, controle de versão, atomicidade e repetição segura.
 
-Em Authentication → URL Configuration, defina a URL do site como `https://rodrigo-yuji.github.io/groceries/` e cadastre o mesmo endereço como redirecionamento permitido. Para testes locais de login, cadastre a URL de desenvolvimento correspondente. Habilite o provedor de e-mail e configure o serviço de envio conforme o ambiente. O acesso pelo app usa link por e-mail.
+Em Authentication → URL Configuration, defina a URL do site como `https://rodrigo-yuji.github.io/groceries/` e cadastre o mesmo endereço como redirecionamento permitido. Para testes locais de login, cadastre a URL de desenvolvimento correspondente. Habilite o provedor de e-mail e configure o serviço de envio conforme o ambiente. O app usa e-mail e senha. O e-mail de confirmação abre a página inicial, e o de recuperação retorna com o parâmetro recuperar. Em Minha conta, o usuário pode alterar a senha após confirmar a senha atual.
 
-Convites são códigos aleatórios de 7 dias. Gerar um novo código invalida o anterior. O responsável pode revogar o código e remover participantes pelo menu Casas.
+Convites são códigos aleatórios de 7 dias. Gerar um novo código invalida o anterior. O responsável pode copiar um link com o código, revogá-lo e remover participantes pelo menu Casas. O link preenche o código e aguarda o participante entrar na conta e confirmar a entrada.
 
 A lista funciona em modo local e em casas compartilhadas. A fila persistente é separada por conta. Um lote enviado ao Supabase tem ID estável e verifica a versão dos registros. Se uma versão divergir, o usuário pode descartar o lote ou reaplicar suas alterações. A atualização usa Realtime com consulta periódica como alternativa. Dispositivos offline podem exibir os dados que já estavam salvos antes de uma revogação.
 
