@@ -1,4 +1,5 @@
 import './style.css';
+import {requestedQuantity,suggestRequestLinks} from './receipt-links.js';
 import {enhanceMoneyFields} from './money-input.js';
 import {purchasePrices,latestCatalogPrice,discountPerUnit,priceSeries,sectorChanges,latestByMarket,matchingPriceSeries,hasPackageSize,searchPriceSeries,priceChartTimeline,filterAndSortPrices} from './price-analysis.js';
 import {suggestReceiptNames,marketName,marketAliasKey,originalMarket} from './receipt-names.js';
@@ -479,7 +480,7 @@ function itemDialog(item=null,product=null){
   const {boughtNow,...fields}=f;
   const alreadyBought=Boolean(boughtNow);
   batch(()=>{
-   const productId=existing?.id||put('product',{name,sector:f.sector,unit:f.unit,lastPrice:price,size,packUnit:f.packUnit,presentation:f.presentation});
+   const productId=existing?.id;
    if(dup){
     const quantity=Math.round((dup.quantity+qty)*1000)/1000;
     const bought=(dup.bought||0)+(alreadyBought?qty:(item?.bought||0));
@@ -761,28 +762,45 @@ async function reviewImportedReceipt(receipt){
  receiptDialog({...receipt,lines});
 }
 function receiptDialog(draft={lines:[],market:'',date:today()}) {
- const aliases=records('alias'),history=records('purchase').reverse();
+ const aliases=records('alias'),history=records('purchase').reverse(),requests=records('item');
  const marketSource=draft.market?.trim()||'';
  const displayMarket=marketName(marketSource,aliases,history);
  showModal('Revisar cupom', `<div class="form-row"><label>Foto para OCR<input type="file" id="ocr" accept="image/*" capture="environment"></label><label>Imagem com QR Code<input type="file" id="qr" accept="image/*"></label><label>XML fiscal ou página HTML salva<input type="file" id="xml" multiple accept=".xml,.html,.htm,application/xml,text/xml,text/html"></label></div><p id="receipt-status" role="status"></p><form id="receipt-form"><div class="form-row"><label>Mercado<input name="market" value="${esc(displayMarket)}" required></label><label>Data<input name="date" type="date" value="${esc(draft.date||today())}" required></label></div><label>Total do cupom (R$)<input name="expected" type="number" min="0" step=".01" value="${esc(draft.expected)}"></label><label>Desconto geral do cupom (R$)<input name="receiptDiscount" type="number" min="0" step=".01" value="${esc(draft.discount??0)}"></label><datalist id="receipt-products">${records('product').map(p=>`<option value="${esc(p.name)}"></option>`).join('')}</datalist><div id="receipt-lines"></div><button class="secondary" id="add-line" type="button">Adicionar linha</button><output id="receipt-total"></output><button class="primary">Salvar compra revisada</button></form>`,true);
  const form = $('#receipt-form');
+ const linkOptions=requests.map(req=>'<option value="'+esc(req.id)+'">'+esc(req.name)+' · '+req.quantity+' '+esc(req.unit||'un')+'</option>').join('');
  function lines() {
   return [...form.querySelectorAll('fieldset')].map(row=>{
    const value = key=>row.querySelector(`[data-field="${key}"]`).value;
    const quantity=number(value('quantity')), price=number(value('price')), discount=number(value('discount'));
-   return {name:value('name').trim(),quantity,unit:value('unit'),price,discount,size:number(value('size'))||undefined,packUnit:value('packUnit'),total:Math.round((quantity*price-discount)*100)/100,sourceName:row.dataset.source,originalPrice:price===Number(row.dataset.importPrice)&&row.dataset.originalPrice!==undefined?Number(row.dataset.originalPrice):price};
+   return {name:value('name').trim(),quantity,unit:value('unit'),price,discount,size:number(value('size'))||undefined,packUnit:value('packUnit'),total:Math.round((quantity*price-discount)*100)/100,sourceName:row.dataset.source,requestId:value('request'),originalPrice:price===Number(row.dataset.importPrice)&&row.dataset.originalPrice!==undefined?Number(row.dataset.originalPrice):price};
   });
  }
- function totals() {
-  const total=lines().reduce((sum,line)=>sum+line.total,0)-number(form.elements.receiptDiscount.value), expected=form.elements.expected.value;
+ function totals(){
+  const entries=lines(),suggestions=suggestRequestLinks(entries,requests,aliases);
+  const allocated=new Map();
+  if(requests.length)[...form.querySelectorAll('fieldset')].forEach((row,index)=>{
+   const select=row.querySelector('[data-field=request]');
+   if(!row.dataset.manualLink)select.value=suggestions[index]||'';
+   const request=requests.find(item=>item.id===select.value);
+   const quantity=request?requestedQuantity(entries[index],request):null;
+   const prior=allocated.get(request?.id)||0;
+   const applied=request&&quantity!==null?Math.max(0,Math.min(quantity,request.quantity-prior)):0;
+   if(request)allocated.set(request.id,prior+applied);
+   row.querySelector('.receipt-link-status').textContent=request?
+    quantity===null?'Unidades incompatíveis.':applied<=0?'Pedido já atendido pelas linhas anteriores.':
+    (row.dataset.manualLink?'':'Vínculo sugerido · ')+'Baixa de '+applied.toLocaleString('pt-BR')+' '+(request.unit||'un'):
+    '';
+  });
+  const total=entries.reduce((sum,line)=>sum+line.total,0)-number(form.elements.receiptDiscount.value), expected=form.elements.expected.value;
   $('#receipt-total').textContent=`Soma das linhas: ${money(total)}${expected!=='' && Math.abs(number(expected)-total)>=.01 ? ' · Divergência de '+money(Math.abs(number(expected)-total)) : ''}`;
  }
  function add(line={}) {
   const row=document.createElement('fieldset');
   row.dataset.source=line.sourceName||line.name||'';
   if(line.originalPrice!=null){row.dataset.originalPrice=line.originalPrice;row.dataset.importPrice=line.price;}
-  row.innerHTML=`<label>Produto<input data-field="name" list="receipt-products" value="${esc(line.name)}" required maxlength="120">${line.sourceName?`<small class="receipt-source">No cupom: ${esc(line.sourceName)}</small>`:''}</label><div class="form-row"><label>Quantidade<input data-field="quantity" type="number" min=".001" step=".001" value="${line.quantity??1}" required></label><label>Unidade<select data-field="unit">${units(line.unit)}</select></label><label>Preço unitário<input data-field="price" type="number" min="0" step="any" value="${line.price??''}" required></label><label>Desconto<input data-field="discount" type="number" min="0" step=".01" value="${line.discount??0}" required></label></div><div class="form-row receipt-package"><label>Tamanho da embalagem<input data-field="size" type="number" min=".001" step="any" placeholder="Ex.: 100" value="${esc(line.size)}"></label><label>Unidade da embalagem<select data-field="packUnit">${units(line.packUnit||'un')}</select></label></div><button class="danger-text" type="button">Remover linha</button>`;
+  row.innerHTML=`<label>Produto<input data-field="name" list="receipt-products" value="${esc(line.name)}" required maxlength="120">${line.sourceName?`<small class="receipt-source">No cupom: ${esc(line.sourceName)}</small>`:''}</label><div class="form-row"><label>Quantidade<input data-field="quantity" type="number" min=".001" step=".001" value="${line.quantity??1}" required></label><label>Unidade<select data-field="unit">${units(line.unit)}</select></label><label>Preço unitário<input data-field="price" type="number" min="0" step="any" value="${line.price??''}" required></label><label>Desconto<input data-field="discount" type="number" min="0" step=".01" value="${line.discount??0}" required></label></div><div class="form-row receipt-package"><label>Tamanho da embalagem<input data-field="size" type="number" min=".001" step="any" placeholder="Ex.: 100" value="${esc(line.size)}"></label><label>Unidade da embalagem<select data-field="packUnit">${units(line.packUnit||'un')}</select></label></div>${requests.length?`<label class="receipt-request">Vincular a pedido da lista<select data-field="request"><option value="">Sem vínculo</option>${linkOptions}</select><small class="receipt-link-status"></small></label>`:'<input type="hidden" data-field="request">'}<button class="danger-text" type="button">Remover linha</button>`;
   enhanceMoneyFields(row);
+  row.querySelector('[data-field=request]').oninput=()=>{row.dataset.manualLink='true';};
   row.querySelector('button').onclick=()=>{row.remove();totals();};
   $('#receipt-lines').append(row);
   totals();
@@ -817,6 +835,12 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
   if(!market||!entries.length||entries.some(line=>!line.name||line.total<0)){status.textContent='Confira o mercado, os produtos e os descontos.';return;}
   const fingerprint=receiptFingerprint(entries.map(line=>({...line,name:line.sourceName||line.name,price:line.total})),marketSource||market,date)+(number(form.elements.receiptDiscount.value)?'|desconto:'+form.elements.receiptDiscount.value:'');
   if(records('purchase').some(row=>row.fingerprint===fingerprint || (draft.key&&row.receiptKey===draft.key))){status.textContent='Este cupom já aparece no histórico.';return;}
+  const pending=records('item');
+  for(const line of entries){
+   if(!line.requestId)continue;
+   const item=pending.find(row=>row.id===line.requestId);
+   if(!item||requestedQuantity(line,item)===null){status.textContent='Confira o vínculo e as unidades de '+line.name+'.';return;}
+  }
   const receiptDiscount=number(form.elements.receiptDiscount.value);
   const subtotal=entries.reduce((sum,line)=>sum+line.total,0);
   if(receiptDiscount<0||receiptDiscount>subtotal){status.textContent='O desconto geral não pode exceder a soma dos itens.';return;}
@@ -835,15 +859,15 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
    line.total=Math.round((line.total-discount)*100)/100;
    allocated=next;
   }
-  const pending=records('item');
   for(const line of entries){
    const product=records('product').find(row=>normalize(row.name)===normalize(line.name))||records('product').find(row=>normalize(row.name)===normalize(line.sourceName));
-   const item=pending.find(row=>row.unit===line.unit&&(normalize(row.name)===normalize(line.name)||normalize(row.name)===normalize(line.sourceName)));
+   const item=pending.find(row=>row.id===line.requestId);
+   delete line.requestId;
    const sector=product?.sector||item?.sector||suggestSector(line.name,sectors());
    line.productId=put('product',{...product,name:line.name,unit:line.unit,sector,...(line.size?{size:line.size,packUnit:line.packUnit}:{}),lastPrice:line.total/line.quantity});
    line.sector=sector;
    line.price=line.total/line.quantity;
-   if(item)item.receiptQuantity=(item.receiptQuantity||0)+line.quantity;
+   if(item)item.receiptQuantity=(item.receiptQuantity||0)+requestedQuantity(line,item);
    if(line.sourceName&&line.name!==line.sourceName)rememberName(normalize(line.sourceName),line.name);
   }
   put('purchase',{market,marketSource:marketSource||market,date,createdAt:Date.now(),lines:entries,total:Math.round(entries.reduce((sum,line)=>sum+line.total,0)*100)/100,fingerprint,receiptKey:draft.key});
