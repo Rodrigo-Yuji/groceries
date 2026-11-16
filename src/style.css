@@ -196,3 +196,7 @@ fieldset{border:1px solid var(--border);border-radius:10px;min-width:0}
 .market-comparison li small{display:block;color:var(--muted)}
 .market-comparison li>strong{white-space:nowrap}
 .compare-markets{padding-inline:5px}
+.bulk-names-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px}
+.bulk-names-list label{min-width:0;gap:3px}
+.bulk-names-list small{color:var(--muted);overflow-wrap:anywhere}
+@media(max-width:540px){.bulk-names-list{grid-template-columns:1fr}}

@@ -30,7 +30,7 @@ function app(){
  const selection=field?[field.selectionStart,field.selectionEnd,field.selectionDirection]:null;
  const active=nav.find(n=>n[0]===page);const items=records('item'),pending=items.filter(i=>i.bought<i.quantity),bought=items.filter(i=>i.bought>0);
  const status=!navigator.onLine?'Sem internet':state.household?(session.status==='syncing'?'Sincronizando':session.status==='error'?'Sincronização pendente':state.queue.length?'Alterações pendentes':'Casa conectada'):'Neste aparelho';
- $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="#" aria-label="Groceries, início"><span class="brand-icon">${icon('shopping-basket')}</span><span>Groceries</span></a><div class="sidebar-caption">MENOS ESQUECIMENTO. MAIS TEMPO.</div><nav>${nav.map(([key,ic,title])=>`<button data-page="${key}" class="nav-item ${page===key?'active':''}">${icon(ic)}<span>${title}</span>${key==='list'?`<b>${pending.length}</b>`:''}</button>`).join('')}</nav><div class="sidebar-bottom"><div class="little-illustration">${icon('sprout')}<strong>Uma casa, uma lista.</strong><p>Todo mundo pede.<br>Você compra com tranquilidade.</p></div><button class="house-switch" data-action="house">${icon('house')}<span><strong>${esc(state.household?.name||'Minha casa')}</strong><small>${state.household?'Lista compartilhada':'Modo local · sem cadastro'}</small></span>${icon('chevron-right')}</button></div></aside><main><header class="topbar"><span class="breadcrumb">Minha casa <span>/</span> ${active[2]}</span><a class="mobile-brand" href="#" aria-label="Groceries, início"><img src="${import.meta.env.BASE_URL}icon.svg" alt="" width="34" height="34"><span>Groceries</span></a><div class="top-actions"><button class="sync-pill ${session.status==='error'?'warn':''}" data-action="sync">${icon(!navigator.onLine?'wifi-off':state.household?'cloud-check':'hard-drive')}<span>${status}</span></button><button class="avatar" data-action="account" aria-label="Minha conta">${icon('user-round')}</button></div></header><div class="content"><div class="page-heading"><div><div class="eyebrow">${page==='list'?'DO PEDIDO AO CARRINHO':'GROCERIES'}</div><h1>${page==='list'?'O que a casa precisa?':active[2]}</h1><p>${({list:'A lista da casa, os preços e as compras em um só lugar.',products:'Seus produtos de sempre, prontos para a próxima compra.',history:'Cada ida ao mercado, guardada em um só lugar.',prices:'Saiba quanto pagou. Compare com mais clareza.',settings:'Deixe o Groceries do seu jeito.'})[page]}</p></div><div class="heading-actions">${page==='list'?button('Ler cupom','receipt','scan-line','secondary')+button(state.shopping?'Encerrar ida':'Começar ida','shopping','shopping-cart','secondary')+button('Adicionar item','add','plus'):page==='products'?button('Novo produto','product','plus'):page==='history'?button('Importar cupom','receipt','scan-line'):''}</div></div>${session.error?`<div class="notice">${icon('cloud-off')}<span>${esc(session.error)}</span><button data-page="settings">Ver configuração</button></div>`:''}${state.conflicts.length?`<div class="notice">${icon('git-compare-arrows')}<span>${state.conflicts.length} alteração(ões) precisam de revisão porque outra pessoa editou o mesmo item.</span><button data-action="conflicts">Revisar</button></div>`:''}${({list:renderList,products:renderProducts,history:renderHistory,prices:renderPrices,settings:renderSettings})[page]()}</div><footer>Groceries <span>Uma rotina mais leve começa aqui.</span></footer></main><nav class="mobile-nav">${nav.map(([key,ic,title])=>`<button data-page="${key}" class="${page===key?'active':''}" aria-label="${title}">${icon(ic)}<span>${key==='list'?'Lista':key==='settings'?'Ajustes':title.replace('Meus ','')}</span></button>`).join('')}</nav>`;
+ $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="#" aria-label="Groceries, início"><span class="brand-icon">${icon('shopping-basket')}</span><span>Groceries</span></a><div class="sidebar-caption">MENOS ESQUECIMENTO. MAIS TEMPO.</div><nav>${nav.map(([key,ic,title])=>`<button data-page="${key}" class="nav-item ${page===key?'active':''}">${icon(ic)}<span>${title}</span>${key==='list'?`<b>${pending.length}</b>`:''}</button>`).join('')}</nav><div class="sidebar-bottom"><div class="little-illustration">${icon('sprout')}<strong>Uma casa, uma lista.</strong><p>Todo mundo pede.<br>Você compra com tranquilidade.</p></div><button class="house-switch" data-action="house">${icon('house')}<span><strong>${esc(state.household?.name||'Minha casa')}</strong><small>${state.household?'Lista compartilhada':'Modo local · sem cadastro'}</small></span>${icon('chevron-right')}</button></div></aside><main><header class="topbar"><span class="breadcrumb">Minha casa <span>/</span> ${active[2]}</span><a class="mobile-brand" href="#" aria-label="Groceries, início"><img src="${import.meta.env.BASE_URL}icon.svg" alt="" width="34" height="34"><span>Groceries</span></a><div class="top-actions"><button class="sync-pill ${session.status==='error'?'warn':''}" data-action="sync">${icon(!navigator.onLine?'wifi-off':state.household?'cloud-check':'hard-drive')}<span>${status}</span></button><button class="avatar" data-action="account" aria-label="Minha conta">${icon('user-round')}</button></div></header><div class="content"><div class="page-heading"><div><div class="eyebrow">${page==='list'?'DO PEDIDO AO CARRINHO':'GROCERIES'}</div><h1>${page==='list'?'O que a casa precisa?':active[2]}</h1><p>${({list:'A lista da casa, os preços e as compras em um só lugar.',products:'Seus produtos de sempre, prontos para a próxima compra.',history:'Cada ida ao mercado, guardada em um só lugar.',prices:'Saiba quanto pagou. Compare com mais clareza.',settings:'Deixe o Groceries do seu jeito.'})[page]}</p></div><div class="heading-actions">${page==='list'?button('Ler cupom','receipt','scan-line','secondary')+button(state.shopping?'Encerrar ida':'Começar ida','shopping','shopping-cart','secondary')+button('Adicionar item','add','plus'):page==='products'?button('Revisar nomes','bulk-names','pencil','secondary')+button('Novo produto','product','plus'):page==='history'?button('Importar cupom','receipt','scan-line'):''}</div></div>${session.error?`<div class="notice">${icon('cloud-off')}<span>${esc(session.error)}</span><button data-page="settings">Ver configuração</button></div>`:''}${state.conflicts.length?`<div class="notice">${icon('git-compare-arrows')}<span>${state.conflicts.length} alteração(ões) precisam de revisão porque outra pessoa editou o mesmo item.</span><button data-action="conflicts">Revisar</button></div>`:''}${({list:renderList,products:renderProducts,history:renderHistory,prices:renderPrices,settings:renderSettings})[page]()}</div><footer>Groceries <span>Uma rotina mais leve começa aqui.</span></footer></main><nav class="mobile-nav">${nav.map(([key,ic,title])=>`<button data-page="${key}" class="${page===key?'active':''}" aria-label="${title}">${icon(ic)}<span>${key==='list'?'Lista':key==='settings'?'Ajustes':title.replace('Meus ','')}</span></button>`).join('')}</nav>`;
  renderIcons();bind();if(page==='prices')bindPriceAnalysis();
  if(selection&&$('#search')){const searchInput=$('#search');searchInput.focus({preventScroll:true});searchInput.setSelectionRange(...selection);}
 }
@@ -44,6 +44,62 @@ function renderList(){
 function sectorIcon(s){return ({Hortifruti:'carrot',Padaria:'croissant',Laticínios:'milk','Carnes e ovos':'egg',Mercearia:'wheat',Bebidas:'cup-soda',Limpeza:'spray-can',Higiene:'bath',Tecnologia:'cpu'})[s]||'package';}
 function renderItem(i,canCompare){const done=i.bought>=i.quantity;return `<article class="item ${done?'done':''}"><button class="check-item ${done?'checked':i.bought>0?'partial':''}" data-check="${i.id}" aria-label="${done?'Desmarcar':'Marcar compra de'} ${esc(i.name)}">${i.bought>0?icon(done?'check':'minus'):''}</button><div class="item-main"><button class="item-name" data-edit="${i.id}">${esc(i.name)}</button>${state.shopping&&i.createdAt>state.lastSeen&&(i.requesterId ? i.requesterId!==session.user?.id : i.requester!==state.name)?'<span class="new-tag">Novo</span>':''}<div class="item-meta"><span>${i.quantity} ${esc(i.unit||'un')}${i.bought>0&&!done?` · ${i.bought} comprado(s)`:''}</span>${i.note||i.quickNote?`<span class="note">${esc([i.note,i.quickNote].filter(Boolean).join(' · '))}</span>`:''}<span class="requester">${esc(i.requester||'Você')}</span></div></div><div class="item-price">${i.price!=null?money(i.price):'<span>Sem preço</span>'}<small>${i.price!=null?'por '+esc(i.unit||'un'):''}</small></div>${canCompare?`<button class="icon-btn compare-markets" data-item-markets="${i.id}" title="Comparar mercados" aria-label="Comparar mercados para ${esc(i.name)}">${icon('store')}</button>`:''}<button class="icon-btn more" data-edit="${i.id}" aria-label="Editar ${esc(i.name)}">${icon('ellipsis')}</button></article>`;}
 const catalogDrafts=new Map();
+function bulkNamesDialog(){
+ const products=records('product').sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+ const aliases=records('alias'),history=records('purchase');
+ if(!products.length)return toast('Adicione produtos ao catálogo primeiro.');
+ const rows=products.map(product=>({product,suggestion:receiptName(product.name,[],aliases,history)}))
+  .sort((a,b)=>Number(b.product.name!==b.suggestion)-Number(a.product.name!==a.suggestion));
+ showModal('Revisar nomes dos produtos',`<p class="muted">As sugestões aparecem primeiro. Confira os nomes e edite os que quiser corrigir.</p><form id="bulk-names"><div class="bulk-names-list">${rows.map(({product,suggestion})=>`<label><small>${esc(product.name)}</small><input name="${product.id}" value="${esc(suggestion)}" maxlength="120" required></label>`).join('')}</div><p id="bulk-name-error" class="form-error" role="alert"></p><button class="primary">Salvar correções</button></form>`,true);
+ $('#bulk-names').onsubmit=event=>{
+  event.preventDefault();
+  const form=new FormData(event.currentTarget);
+  const current=records('product');
+  const edits=new Map(),seen=new Set();
+  for(const product of current){
+   const name=String(form.get(product.id)??product.name).trim();
+   const key=normalize(name);
+   if(!key||seen.has(key)){
+    $('#bulk-name-error').textContent='Cada produto precisa de um nome diferente. Confira: '+name;
+    return;
+   }
+   seen.add(key);
+   if(name!==product.name)edits.set(product.id,{...product,name,previous:product.name});
+  }
+  if(!edits.size){closeModal();return toast('Nenhum nome foi alterado.');}
+  const byOldName=new Map([...edits.values()].map(edit=>[normalize(edit.previous),edit]));
+  const findEdit=line=>line.productId?edits.get(line.productId):byOldName.get(normalize(line.name));
+  batch(()=>{
+   for(const {previous,...product} of edits.values()){
+    rememberName(normalize(previous),product.name);
+    put('product',product);
+   }
+   for(const alias of aliases){
+    if(alias.key.startsWith('market:'))continue;
+    const edit=byOldName.get(normalize(alias.name));
+    if(edit)rememberName(alias.key,edit.name);
+   }
+   for(const item of records('item')){
+    const edit=findEdit(item);
+    if(edit)put('item',{...item,name:edit.name});
+   }
+   for(const purchase of records('purchase')){
+    let changed=false;
+    const lines=purchase.lines.map(line=>{
+     const edit=findEdit(line);
+     if(!edit)return line;
+     changed=true;
+     if(line.sourceName)rememberName(normalize(line.sourceName),edit.name);
+     return {...line,name:edit.name};
+    });
+    if(changed)put('purchase',{...purchase,lines});
+   }
+  });
+  closeModal();
+  toast(edits.size===1?'Nome de produto atualizado.':edits.size+' nomes de produtos atualizados.');
+ };
+}
+
 function renderProducts(){
  const catalog=records('product'),prices=priceEntries();
  const products=catalog.filter(product=>normalize(product.name+' '+product.sector).includes(normalize(search)))
@@ -137,7 +193,7 @@ function bind(){
  document.querySelectorAll('[data-sector-remove]').forEach(el=>el.onclick=()=>{const name=sectors()[+el.dataset.sectorRemove];if(name==='Sem setor')return toast('O setor padrão precisa permanecer.');confirmDialog('Remover setor?',`Os produtos de “${name}” passam para Sem setor.`,()=>{for(const kind of ['item','product'])for(const r of records(kind).filter(r=>r.sector===name))put(kind,{...r,sector:'Sem setor'});setSectors(sectors().filter(s=>s!==name));});});
  $('#backup-file')?.addEventListener('change',restoreBackup);
 }
-const actions={shopping:()=>{state.shopping=!state.shopping;if(state.shopping)state.lastSeen=Date.now();persist();app();},add:()=>itemDialog(),product:()=>productDialog(),receipt:()=>receiptDialog(),finish:()=>finishDialog(),account:()=>accountDialog(),house:()=>houseDialog(),sync:()=>{if(state.household){void sync();toast('Tentando sincronizar…');}else toast('Lista salva neste aparelho. Entre na sua conta para compartilhar.');},sector:()=>sectorDialog(),install:()=>install(),export:()=>exportBackup(),conflicts:()=>conflictDialog()};
+const actions={'bulk-names':bulkNamesDialog,shopping:()=>{state.shopping=!state.shopping;if(state.shopping)state.lastSeen=Date.now();persist();app();},add:()=>itemDialog(),product:()=>productDialog(),receipt:()=>receiptDialog(),finish:()=>finishDialog(),account:()=>accountDialog(),house:()=>houseDialog(),sync:()=>{if(state.household){void sync();toast('Tentando sincronizar…');}else toast('Lista salva neste aparelho. Entre na sua conta para compartilhar.');},sector:()=>sectorDialog(),install:()=>install(),export:()=>exportBackup(),conflicts:()=>conflictDialog()};
 function bindCatalogForms(){
  document.querySelectorAll('[data-catalog-add]').forEach(form=>{
   const id=form.dataset.catalogAdd;
