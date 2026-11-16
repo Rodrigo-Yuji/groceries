@@ -158,3 +158,33 @@ fieldset{border:1px solid var(--border);border-radius:10px;min-width:0}
  .catalog-submit{padding-inline:8px;gap:4px;font-size:.8rem}
  .catalog-submit svg{width:15px;height:15px}
 }
+.catalog-price{display:grid;gap:1px;text-align:right;white-space:normal;max-width:150px}
+.catalog-price strong{color:#18342c;font-size:.93rem}
+.catalog-price small{font-size:.72rem;line-height:1.25}
+.price-explainer{margin:0;padding:0 14px 12px;color:var(--muted);font-size:.88rem}
+.price-overview{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 14px 12px;font-size:.85rem}
+.price-overview>span{padding:5px 9px;border:1px solid var(--border);border-radius:8px}
+.price-overview button{margin-left:auto}
+.price-analysis-scroll{max-height:32rem}
+.price-history{margin-top:14px}
+.price-history summary{cursor:pointer;padding:12px 14px;font-weight:750}
+.price-history summary span{color:var(--muted);font-size:.8rem;font-weight:500;margin-left:8px}
+.price-history-scroll{max-height:18rem}
+.price-history td,.price-history th{padding:6px 10px;font-size:.82rem}
+.price-analysis th,.price-history th{position:sticky;top:0;background:#f6f9f4;z-index:1}
+.trend-up{color:#9b3e27}
+.trend-down{color:#176443}
+.price-bars{display:grid;gap:12px;margin:0;padding:0;list-style:none;font-size:.88rem}
+.price-bars li>div:first-child{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.price-bars li strong{white-space:nowrap;font-variant-numeric:tabular-nums}
+.price-bar-track{background:#edf3eb;border-radius:6px;height:8px;margin-top:4px;color:var(--jade)}
+.price-bar-track.trend-up{color:#9b3e27}
+.price-bar-track.trend-down{color:#176443}
+.price-bar-track i{display:block;height:100%;width:var(--bar);background:currentColor;border-radius:6px}
+@media(max-width:480px){
+ .catalog-price{max-width:105px}
+ .catalog-price small{font-size:.66rem}
+ .price-overview button{margin-left:0}
+ .price-analysis td,.price-analysis th{padding:6px;font-size:.76rem}
+ .price-analysis td:last-child,.price-analysis th:last-child{text-align:center}
+}

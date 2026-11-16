@@ -1,4 +1,4 @@
-export const DEFAULT_SECTORS = ['Hortifruti','Padaria','Laticínios','Carnes e ovos','Mercearia','Bebidas','Limpeza','Higiene','Sem setor'];
+export const DEFAULT_SECTORS = ['Hortifruti','Padaria','Laticínios','Carnes e ovos','Mercearia','Bebidas','Limpeza','Higiene','Tecnologia','Sem setor'];
 export const normalize = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 export const money = n => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(n)||0);
 export const number = v => Number(String(v ?? '').replace(/\s/g,'').replace(',','.'));
@@ -8,6 +8,7 @@ export function suggestSector(name, available=DEFAULT_SECTORS) {
  const custom=available.find(label=>label!=='Sem setor'&&!DEFAULT_SECTORS.includes(label)&&(' '+n+' ').includes(' '+normalize(label)+' '));
  if(custom)return custom;
  const groups=[
+  [['Tecnologia'],/\b(carregador|cabo usb|pendrive|pen drive|fone de ouvido|mouse|teclado|adaptador usb|pilha|pilhas|bateria|cartao de memoria|hdmi)\b/],
   [['Salgadinhos','Mercearia'],/\b(salgadinh\w*|chips|doritos|cheetos|ruffles|fandangos|baconzitos|pipoca|popcor\w*)\b/],
   [['Higiene'],/\b(sabonete|shampoo|xampu|condicionador|papel higienico|creme dental|desodorante|absorvente|fralda)\b/],
   [['Limpeza'],/\b(detergente|sabao|amaciante|desinfetante|esponja|alvejante|agua sanitaria|limpa vidros|multiuso)\b/],

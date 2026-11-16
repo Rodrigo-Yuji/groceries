@@ -58,8 +58,15 @@ export function remove(id){
  const row=state.records[id];
  if(row&&!row.deleted)stage({...row,deleted:true});
 }
-export function sectors(){return records('settings').find(row=>row.key==='sectors')?.values||DEFAULT_SECTORS;}
-export function setSectors(values){put('settings',{id:records('settings').find(row=>row.key==='sectors')?.id,key:'sectors',values});}
+export function sectors(){
+ const setting=records('settings').find(row=>row.key==='sectors');
+ if(!setting)return DEFAULT_SECTORS;
+ if(setting.technologyAdded||setting.values.includes('Tecnologia'))return setting.values;
+ const values=[...setting.values],fallback=values.indexOf('Sem setor');
+ values.splice(fallback<0?values.length:fallback,0,'Tecnologia');
+ return values;
+}
+export function setSectors(values){put('settings',{id:records('settings').find(row=>row.key==='sectors')?.id,key:'sectors',values,technologyAdded:true});}
 
 function fail(error){return error?.message||'Não foi possível sincronizar.';}
 function rebuild(rows){
