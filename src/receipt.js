@@ -66,7 +66,7 @@ function readDetailedReceipt(document){
  const all=[...document.querySelectorAll('tr')];
  const fiscalKey=field(all,/^chave de acesso$/i)?.replace(/\D/g,'');
  const market=field(all,/^raz[aã]o social$/i)||'';
- return {lines,market,key:fiscalKey?.length===44?fiscalKey:undefined};
+ return {lines,market,detailed:true,key:fiscalKey?.length===44?fiscalKey:undefined};
 }
 export function readPortalHTML(html){
  const document=new DOMParser().parseFromString(html,'text/html');
@@ -115,4 +115,20 @@ export async function importFiscalURL(url){
  if(!response.ok)throw Error('O portal não retornou o cupom.');
  const body=await response.text();
  return response.headers.get('content-type')?.includes('xml')?readXML(body):readPortalHTML(body);
+}
+
+export async function readReceiptFiles(files){
+ const documents=[...files].filter(file=>/\.(html?|xml)$/i.test(file.name)&&file.size<=15_000_000);
+ if(!documents.length)throw Error('Selecione o XML ou a pasta com os arquivos HTML do cupom.');
+ let best, lastError;
+ for(const file of documents){
+  try{
+   const text=await file.text();
+   const result=/\.xml$/i.test(file.name)?readXML(text):readPortalHTML(text);
+   const priority=/\.xml$/i.test(file.name)?3:result.detailed?2:1;
+   if(!best||priority>best.priority||(priority===best.priority&&result.lines.length>best.result.lines.length))best={result,priority};
+  }catch(error){lastError=error;}
+ }
+ if(best)return best.result;
+ throw lastError||Error('Nenhum HTML com produtos foi encontrado na pasta.');
 }
