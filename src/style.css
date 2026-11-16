@@ -205,3 +205,9 @@ fieldset{border:1px solid var(--border);border-radius:10px;min-width:0}
 @media(max-width:480px){.history-line{grid-template-columns:18px minmax(0,1fr) max-content 38px;column-gap:6px}.history-line .icon-btn{width:38px}.history-line>strong{font-size:.85rem}}
 .receipt-source{display:block;color:var(--muted);font-size:.82rem;overflow-wrap:anywhere}
 .receipt-package{margin-top:8px}
+.price-timeline{display:block;width:100%;height:230px}
+.chart-reference{font-size:.88rem;margin-bottom:4px;color:var(--muted)}
+.chart-reference strong{color:var(--jade)}
+.chart-values{font-size:.88rem;border-top:1px solid var(--border);padding-top:8px}
+.chart-values summary{cursor:pointer;font-weight:650}
+.chart-values ol{margin-top:10px}

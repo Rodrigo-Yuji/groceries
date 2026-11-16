@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {purchasePrices,latestCatalogPrice,discountPerUnit,priceSeries,sectorChanges,latestByMarket,matchingPriceSeries} from './price-analysis.js';
+import {purchasePrices,latestCatalogPrice,discountPerUnit,priceSeries,sectorChanges,latestByMarket,matchingPriceSeries,searchPriceSeries,priceChartTimeline} from './price-analysis.js';
 import {suggestSector,DEFAULT_SECTORS} from './domain.js';
 
 const product={id:'aveia',name:'Aveia',sector:'Mercearia',unit:'un',size:500,packUnit:'g'};
@@ -49,4 +49,30 @@ test('compara só o último preço pago por mercado e preserva a apresentação'
  const matching=matchingPriceSeries(product,series);
  assert.equal(matching.length,1);
  assert.deepEqual(latestByMarket(matching[0]).map(p=>[p.market,p.price]),[['Mercado B',8],['Mercado A',9]]);
+});
+
+test('o gráfico começa no preço mais antigo mesmo se a busca mencionar o mercado mais novo',()=>{
+ const purchases=[
+  {id:'latest',market:'Mercado Novo',date:'2026-11-16',lines:[{...line,price:12}]},
+  {id:'old',market:'Outro mercado',date:'2026-09-01',lines:[{...line,price:8}]},
+ ];
+ const [filtered]=searchPriceSeries(priceSeries(purchasePrices(purchases),[product],DEFAULT_SECTORS),'Mercado Novo');
+ assert.deepEqual(priceChartTimeline(filtered).map(point=>point.price),[8,12]);
+ assert.equal(priceChartTimeline(filtered)[0].date,'2026-09-01');
+ assert.equal(filtered.change,50);
+});
+
+test('agrupa gramatura no nome e no cadastro sem misturar embalagens diferentes',()=>{
+ const farofa={name:'Farofa tradicional - Yoki 400g',unit:'pacote',quantity:1};
+ const purchases=[
+  {id:'current',market:'Assaí',date:'2026-11-10',lines:[{...farofa,price:10.59}]},
+  {id:'other',market:'Assaí',date:'2026-10-02',lines:[{...farofa,name:'Farofa tradicional - Yoki 400 g',size:400,packUnit:'g',price:11.89}]},
+  {id:'oldest',market:'Assaí',date:'2026-09-26',lines:[{...farofa,size:.4,packUnit:'kg',price:12.89}]},
+  {id:'larger',market:'Assaí',date:'2026-09-20',lines:[{...farofa,name:'Farofa tradicional - Yoki 500g',size:500,packUnit:'g',price:14}]}
+ ];
+ const groups=priceSeries(purchasePrices(purchases),[],DEFAULT_SECTORS);
+ assert.equal(groups.length,2);
+ const group=groups.find(item=>item.size===400);
+ assert.deepEqual(priceChartTimeline(group).map(point=>point.price),[12.89,11.89,10.59]);
+ assert.equal(matchingPriceSeries(farofa,groups).length,1);
 });

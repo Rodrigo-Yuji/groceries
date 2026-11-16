@@ -1,5 +1,5 @@
 import './style.css';
-import {purchasePrices,latestCatalogPrice,discountPerUnit,priceSeries,sectorChanges,latestByMarket,matchingPriceSeries,hasPackageSize} from './price-analysis.js';
+import {purchasePrices,latestCatalogPrice,discountPerUnit,priceSeries,sectorChanges,latestByMarket,matchingPriceSeries,hasPackageSize,searchPriceSeries,priceChartTimeline} from './price-analysis.js';
 import {suggestReceiptNames,marketName,marketAliasKey,originalMarket} from './receipt-names.js';
 import {appURL,invitationURL,pendingInvitation,clearInvitation,authMessage,changePassword} from './account.js';
 import {createIcons,icons} from 'lucide';
@@ -58,11 +58,12 @@ const trendClass=value=>value>0?'trend-up':value<0?'trend-down':'muted';
 function presentationOf(line){
  return [line.presentation,hasPackageSize(line)?line.size+' '+(line.packUnit||'un'):''].filter(Boolean).join(' · ');
 }
+function visiblePriceSeries(){return searchPriceSeries(priceSeries(priceEntries(),records('product'),sectors()),search);}
 function renderPrices(){
  const lines=priceEntries().filter(line=>normalize(line.name+' '+line.market).includes(normalize(search)));
- const series=priceSeries(lines,records('product'),sectors());
+ const series=visiblePriceSeries();
  const changes=sectorChanges(series,sectors());
- return `<section class="panel price-analysis"><div class="panel-toolbar"><h2>Análise de preços</h2><label class="search">${icon('search')}<input id="search" type="text" inputmode="search" role="searchbox" value="${esc(search)}" placeholder="Produto ou mercado" aria-label="Buscar preços"></label></div><p class="price-explainer">A variação compara a primeira e a última compra de cada apresentação dentro dos resultados. Se houver preços diferentes no mesmo cupom, o gráfico usa a média.</p>${series.length?`<div class="price-overview"><span><strong>${series.length}</strong> apresentações</span><span><strong>${series.filter(item=>item.change>0).length}</strong> subiram</span><span><strong>${series.filter(item=>item.change<0).length}</strong> caíram</span><button class="secondary" id="sector-chart" ${changes.length?'':'disabled'}>${icon('chart-bar')}Gráfico por setor</button></div><div class="table-scroll price-analysis-scroll"><table><thead><tr><th>Produto</th><th>Último preço pago</th><th>Variação</th><th>Melhor mercado</th><th>Gráfico</th></tr></thead><tbody>${series.map((item,index)=>{const markets=latestByMarket(item),best=markets[0];return `<tr><td><strong>${esc(item.name)}</strong><small>${esc([presentationOf(item),item.sector].filter(Boolean).join(' · '))}</small></td><td>${priceLabel(item.latest.price)} / ${esc(item.unit)}<small>${esc(item.latest.market)} · ${dateLabel(item.latest.date)}</small></td><td>${item.change==null?'<span class="muted">Sem comparação</span>':`<strong class="${trendClass(item.change)}">${percent(item.change)}</strong><small>Desde ${dateLabel(item.first.date)}</small>`}</td><td><button class="text-btn best-market" data-market-compare="${index}">${esc(best.market)}<small>${money(best.price)}${markets.length===1?' · 1 mercado':''}</small></button></td><td><button class="icon-btn" data-price-chart="${index}" aria-label="Ver gráfico de ${esc(item.name)}" title="Ver gráfico">${icon('chart-no-axes-combined')}</button></td></tr>`;}).join('')}</tbody></table></div>`:empty('Nenhum preço para analisar','Registre uma compra com preços ou ajuste a busca.')}</section><details class="panel price-history" ${priceHistoryOpen?'open':''}><summary>Histórico de preços <span>${lines.length} registros</span></summary>${lines.length?`<div class="table-scroll price-history-scroll"><table><thead><tr><th>Produto</th><th>Mercado</th><th>Data</th><th>Original</th><th>Pago</th><th>Preço base</th></tr></thead><tbody>${lines.map(line=>{
+ return `<section class="panel price-analysis"><div class="panel-toolbar"><h2>Análise de preços</h2><label class="search">${icon('search')}<input id="search" type="text" inputmode="search" role="searchbox" value="${esc(search)}" placeholder="Produto ou mercado" aria-label="Buscar preços"></label></div><p class="price-explainer">A variação compara a primeira e a última compra de cada apresentação desde o primeiro registro. Se houver preços diferentes no mesmo cupom, o gráfico usa a média.</p>${series.length?`<div class="price-overview"><span><strong>${series.length}</strong> apresentações</span><span><strong>${series.filter(item=>item.change>0).length}</strong> subiram</span><span><strong>${series.filter(item=>item.change<0).length}</strong> caíram</span><button class="secondary" id="sector-chart" ${changes.length?'':'disabled'}>${icon('chart-bar')}Gráfico por setor</button></div><div class="table-scroll price-analysis-scroll"><table><thead><tr><th>Produto</th><th>Último preço pago</th><th>Variação</th><th>Melhor mercado</th><th>Gráfico</th></tr></thead><tbody>${series.map((item,index)=>{const markets=latestByMarket(item),best=markets[0];return `<tr><td><strong>${esc(item.name)}</strong><small>${esc([presentationOf(item),item.sector].filter(Boolean).join(' · '))}</small></td><td>${priceLabel(item.latest.price)} / ${esc(item.unit)}<small>${esc(item.latest.market)} · ${dateLabel(item.latest.date)}</small></td><td>${item.change==null?'<span class="muted">Sem comparação</span>':`<strong class="${trendClass(item.change)}">${percent(item.change)}</strong><small>Desde ${dateLabel(item.first.date)}</small>`}</td><td><button class="text-btn best-market" data-market-compare="${index}">${esc(best.market)}<small>${money(best.price)}${markets.length===1?' · 1 mercado':''}</small></button></td><td><button class="icon-btn" data-price-chart="${index}" aria-label="Ver gráfico de ${esc(item.name)}" title="Ver gráfico">${icon('chart-no-axes-combined')}</button></td></tr>`;}).join('')}</tbody></table></div>`:empty('Nenhum preço para analisar','Registre uma compra com preços ou ajuste a busca.')}</section><details class="panel price-history" ${priceHistoryOpen?'open':''}><summary>Histórico de preços <span>${lines.length} registros</span></summary>${lines.length?`<div class="table-scroll price-history-scroll"><table><thead><tr><th>Produto</th><th>Mercado</th><th>Data</th><th>Original</th><th>Pago</th><th>Preço base</th></tr></thead><tbody>${lines.map(line=>{
   const base=hasPackageSize(line)?unitPrice(line.price,line.size,line.packUnit||'un'):unitPrice(line.price,1,line.unit||'un');
   return `<tr><td><strong>${esc(line.name)}</strong><small>${esc(presentationOf(line))}</small></td><td>${esc(line.market)}</td><td>${dateLabel(line.date)}</td><td>${priceLabel(originalPrice(line))}</td><td>${priceLabel(line.price)}${line.allocatedDiscount>0?'<small>Desconto geral rateado</small>':''}</td><td>${base?money(base.value)+' / '+base.unit:'—'}</td></tr>`;
  }).join('')}</tbody></table></div>`:empty('Nenhum preço registrado','Os preços aparecem aqui depois de finalizar compras com valores informados.')}</details>`;
@@ -70,8 +71,7 @@ function renderPrices(){
 function bindPriceAnalysis(){
  const history=$('.price-history');
  if(history)history.ontoggle=()=>{priceHistoryOpen=history.open;};
- const lines=priceEntries().filter(line=>normalize(line.name+' '+line.market).includes(normalize(search)));
- const series=priceSeries(lines,records('product'),sectors());
+ const series=visiblePriceSeries();
  for(const button of document.querySelectorAll('[data-price-chart]')){
   button.onclick=()=>productPriceChart(series[Number(button.dataset.priceChart)]);
  }
@@ -88,11 +88,59 @@ function showMarketComparison(name,series){
  showModal(name,`<p class="muted">Último preço pago em cada mercado, do menor ao maior.</p>${blocks}`);
 }
 
-function productPriceChart(series){
- const points=[...series.points].reverse();
- const max=Math.max(.01,...points.map(point=>point.price));
- showModal(series.name,`<p class="muted">${esc(presentationOf(series)||series.sector)} · preço pago por ${esc(series.unit)}</p><ol class="price-bars">${points.map(point=>`<li><div><span>${dateLabel(point.date)} · ${esc(point.market)}</span><strong>${money(point.price)}</strong></div><div class="price-bar-track" aria-hidden="true"><i style="--bar:${point.price/max*100}%"></i></div></li>`).join('')}</ol>`);
+function drawPriceTimeline(canvas,points){
+ const width=canvas.clientWidth,height=canvas.clientHeight;
+ if(!width||!height)return;
+ const density=window.devicePixelRatio||1;
+ canvas.width=Math.round(width*density);
+ canvas.height=Math.round(height*density);
+ const ctx=canvas.getContext('2d');
+ if(!ctx)return;
+ ctx.scale(density,density);
+ const left=75,right=width-16,top=15,bottom=height-36;
+ const prices=points.map(point=>point.price);
+ const min=Math.min(...prices),max=Math.max(...prices);
+ const padding=Math.max((max-min)*.12,max*.07,.05);
+ const low=Math.max(0,min-padding),high=max+padding;
+ const earliest=Date.parse(points[0].date),latest=Date.parse(points.at(-1).date);
+ const x=(point,index)=>earliest!==latest?left+(Date.parse(point.date)-earliest)/(latest-earliest)*(right-left):
+  points.length===1?left:left+index/(points.length-1)*(right-left);
+ const y=price=>bottom-(price-low)/(high-low)*(bottom-top);
+ ctx.font='12px system-ui, sans-serif';
+ ctx.textBaseline='middle';
+ ctx.textAlign='right';
+ for(let step=0;step<=4;step++){
+  const price=low+(high-low)*step/4,pos=y(price);
+  ctx.strokeStyle='#dce6dd';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(left,pos);ctx.lineTo(right,pos);ctx.stroke();
+  ctx.fillStyle='#52665c';ctx.fillText(money(price),left-8,pos,66);
+ }
+ ctx.strokeStyle='#718a79';ctx.setLineDash([5,4]);
+ ctx.beginPath();ctx.moveTo(left,y(points[0].price));ctx.lineTo(right,y(points[0].price));ctx.stroke();
+ ctx.setLineDash([]);ctx.strokeStyle='#194f40';ctx.lineWidth=2.5;ctx.lineJoin='round';
+ ctx.beginPath();
+ points.forEach((point,index)=>index===0?ctx.moveTo(x(point,index),y(point.price)):ctx.lineTo(x(point,index),y(point.price)));
+ ctx.stroke();
+ points.forEach((point,index)=>{
+  ctx.fillStyle='#194f40';ctx.beginPath();ctx.arc(x(point,index),y(point.price),index===0?5:3.5,0,Math.PI*2);ctx.fill();
+ });
+ ctx.fillStyle='#52665c';ctx.textAlign='left';
+ ctx.fillText(dateLabel(points[0].date),left,bottom+22);
+ if(earliest!==latest){ctx.textAlign='right';ctx.fillText(dateLabel(points.at(-1).date),right,bottom+22);}
 }
+function productPriceChart(series){
+ const points=priceChartTimeline(series),first=points[0];
+ showModal(series.name,`<p class="muted">${esc(presentationOf(series)||series.sector)} · preço pago por ${esc(series.unit)}</p><p class="chart-reference"><strong>Preço inicial: ${money(first.price)}</strong> · ${dateLabel(first.date)} · ${esc(first.market)}</p><canvas class="price-timeline" role="img" aria-label="Evolução do preço desde ${dateLabel(first.date)}, começando em ${money(first.price)}. Os valores estão disponíveis logo abaixo."></canvas><details class="chart-values"><summary>Ver valores do gráfico</summary><ol class="price-bars">${points.map(point=>`<li><div><span>${dateLabel(point.date)} · ${esc(point.market)}</span><strong>${money(point.price)}</strong></div></li>`).join('')}</ol></details>`);
+ const canvas=$('.price-timeline');
+ const draw=()=>drawPriceTimeline(canvas,points);
+ if('ResizeObserver' in window){
+  const observer=new ResizeObserver(draw);
+  observer.observe(canvas);
+  modalCleanup=()=>observer.disconnect();
+ }
+ draw();
+}
+
 function sectorPriceChart(rows){
  const max=Math.max(1,...rows.map(row=>Math.abs(row.change)));
  showModal('Variação por setor',`<p class="muted">Média das variações das apresentações com pelo menos dois preços comparáveis. Cada apresentação tem o mesmo peso.</p><ol class="price-bars">${rows.map(row=>`<li><div><span>${esc(row.sector)} · ${row.count} ${row.count===1?'apresentação':'apresentações'}</span><strong class="${trendClass(row.change)}">${percent(row.change)}</strong></div><div class="price-bar-track ${trendClass(row.change)}" aria-hidden="true"><i style="--bar:${Math.abs(row.change)/max*100}%"></i></div></li>`).join('')}</ol>`);

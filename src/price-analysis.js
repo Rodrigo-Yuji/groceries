@@ -1,4 +1,5 @@
 import {distinctPriceLines,normalize,originalPrice} from './domain.js';
+import {readPackage} from './receipt-names.js';
 
 export function purchasePrices(purchases){
  return purchases.flatMap((purchase,index)=>distinctPriceLines(purchase.lines).map(line=>({
@@ -22,16 +23,32 @@ export function discountPerUnit(line){
  return Math.max(0,(originalPrice(line)??line.price)-line.price);
 }
 
+function analysisPackage(line,name){
+ if(hasPackageSize(line))return {size:line.size,packUnit:line.packUnit||'un'};
+ return readPackage(line.name)||readPackage(name)||{size:undefined,packUnit:undefined};
+}
+function packageKey({size,packUnit}){
+ if(!size)return '';
+ if(packUnit==='kg')return [Math.round(size*1e6)/1000,'g'];
+ if(packUnit==='L')return [Math.round(size*1e6)/1000,'ml'];
+ return [size,packUnit];
+}
+function nameKey(name,pack){
+ const measured=/\b\d+(?:[.,]\d+)?\s*(?:kg|ml|lt|g|l)\b/gi;
+ const withoutMeasure=pack.size&&['kg','g','ml','L'].includes(pack.packUnit)?name.replace(measured,' '):name;
+ return normalize(withoutMeasure);
+}
 export function priceSeries(prices,products,sectors){
  const series=new Map();
  for(const line of prices){
   if(!(Number.isFinite(line.price)&&line.price>=0))continue;
   const product=products.find(p=>p.id===line.productId)||products.find(p=>normalize(p.name)===normalize(line.name));
   const name=product?.name||line.name;
-  const key=JSON.stringify([normalize(name),normalize(line.presentation),line.unit||'un',line.size??1,line.packUnit||line.unit||'un']);
+  const pack=analysisPackage(line,name);
+  const key=JSON.stringify([nameKey(name,pack),normalize(line.presentation),line.unit||'un',packageKey(pack)]);
   if(!series.has(key)){
    const savedSector=product?.sector||line.sector;
-   series.set(key,{name,presentation:line.presentation,unit:line.unit||'un',size:line.size,packUnit:line.packUnit,
+   series.set(key,{name,presentation:line.presentation,unit:line.unit||'un',...pack,
     sector:sectors.includes(savedSector)?savedSector:'Sem setor',observations:new Map()});
   }
   const observations=series.get(key).observations;
@@ -65,7 +82,20 @@ export function latestByMarket(series){
 }
 
 export function matchingPriceSeries(item,series){
- return series.filter(group=>normalize(group.name)===normalize(item.name)&&group.unit===(item.unit||'un')&&
-  (!hasPackageSize(item)||(group.size===item.size&&(group.packUnit||'un')===(item.packUnit||'un')))&&
+ const pack=analysisPackage(item,item.name);
+ return series.filter(group=>nameKey(group.name,group)===nameKey(item.name,pack)&&group.unit===(item.unit||'un')&&
+  (!pack.size||JSON.stringify(packageKey(group))===JSON.stringify(packageKey(pack)))&&
   (!item.presentation||normalize(group.presentation)===normalize(item.presentation)));
+}
+
+export function searchPriceSeries(series,query){
+ const term=normalize(query);
+ return series.filter(item=>
+  normalize([item.name,item.presentation,item.sector].join(' ')).includes(term)||
+  item.points.some(point=>normalize(point.name+' '+point.market).includes(term))
+ );
+}
+
+export function priceChartTimeline(series){
+ return [...series.points].sort((a,b)=>a.date.localeCompare(b.date)||a.order-b.order);
 }
