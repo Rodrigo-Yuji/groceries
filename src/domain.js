@@ -58,3 +58,19 @@ export function parseReceipt(text) {
  return result;
 }
 export function receiptFingerprint(lines,market,date){return normalize(market)+'|'+date+'|'+lines.map(i=>normalize(i.name)+':'+i.quantity+':'+i.price).sort().join('|');}
+
+export const originalPrice=line=>line.originalPrice??(line.price==null?null:line.price+(line.discount||0)/line.quantity);
+
+export function distinctPriceLines(lines){
+ const priceKey=price=>price==null?null:Number(price.toFixed(10));
+ const seen=new Set();
+ return lines.filter(line=>{
+  const key=JSON.stringify([
+   normalize(line.name),normalize(line.presentation),line.unit||'un',line.size??null,
+   line.packUnit||'un',priceKey(originalPrice(line)),priceKey(line.price),line.allocatedDiscount>0
+  ]);
+  if(seen.has(key))return false;
+  seen.add(key);
+  return true;
+ });
+}

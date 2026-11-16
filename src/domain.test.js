@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalize,finishPurchase,purchaseItem,receiptFingerprint,unitPrice} from './domain.js';
+import {normalize,finishPurchase,purchaseItem,receiptFingerprint,unitPrice,distinctPriceLines} from './domain.js';
 
 test('normaliza acentos e espaços preservando variantes', () => {
  assert.equal(normalize('  CAFÉ   em pó '),normalize('cafe em po'));
@@ -25,4 +25,12 @@ test('converte gramas e mililitros para o preço de referência', () => {
 test('a ordem de revisão não altera a identificação do cupom', () => {
  const lines=[{name:'Pão',quantity:2,price:3},{name:'Suco',quantity:1,price:4}];
  assert.equal(receiptFingerprint(lines,'Mercado','2026-11-16'),receiptFingerprint([...lines].reverse(),'mercado','2026-11-16'));
+});
+
+test('consolida preços idênticos do cupom, mantendo preços e embalagens diferentes',()=>{
+ const line={name:'Farofa Yoki 400g',quantity:1,originalPrice:11.89,price:10.59,unit:'un',size:400,packUnit:'g'};
+ const cheaper={...line,price:9.59};
+ const otherSize={...line,size:500};
+ const rated={...line,allocatedDiscount:1.30};
+ assert.deepEqual(distinctPriceLines([line,{...line,name:'FAROFA YOKI 400G',quantity:3},{...line,price:10.590000000001},cheaper,otherSize,rated]),[line,cheaper,otherSize,rated]);
 });
