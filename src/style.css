@@ -117,3 +117,21 @@ fieldset{border:1px solid var(--border);border-radius:10px;min-width:0}
  .top-actions .sync-pill{min-height:44px;padding-inline:8px;font-size:.75rem;line-height:1.15;text-align:left}
  .top-actions .avatar{flex:0 0 44px;height:44px}
 }
+.catalog-list{list-style:none;margin:0;padding:0}
+.catalog-row{display:grid;grid-template-columns:32px minmax(0,1fr) max-content max-content;align-items:center;gap:12px;min-height:58px;padding:5px 14px;border-top:1px solid var(--border)}
+.catalog-icon{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;background:#edf4e9;color:var(--jade)}
+.catalog-icon svg{width:17px;height:17px}
+.catalog-name{min-width:0;overflow-wrap:anywhere}
+.catalog-name strong,.catalog-name small{display:block}
+.catalog-name small,.catalog-price{color:var(--muted);font-size:.82rem}
+.catalog-price{font-variant-numeric:tabular-nums;white-space:nowrap}
+.catalog-actions{display:flex}
+.catalog-actions .icon-btn{width:40px;min-height:40px;padding:0}
+.catalog-actions .icon-btn:hover{background:#edf4e9}
+@media(max-width:480px){
+ .catalog-row{grid-template-columns:minmax(0,1fr) max-content max-content;gap:6px;padding:4px 8px 4px 12px}
+ .catalog-icon{display:none}
+ .catalog-actions .icon-btn{width:44px;min-height:44px}
+ .catalog-price{font-size:.75rem}
+ .panel-toolbar:has(#search){flex-wrap:wrap}
+}
