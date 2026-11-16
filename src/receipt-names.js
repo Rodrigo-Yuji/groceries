@@ -14,6 +14,19 @@ export function receiptName(raw,products,aliases,history=[]){
 }
 
 const receiptRules=[
+ [/^beb monster (\d+)\s*ml tr$/,m=>'Energético Monster tradicional '+m[1]+' mL'],
+ [/^beb monster (\d+)\s*ml az$/,m=>'Energético Monster azul '+m[1]+' mL'],
+ [/^p forma visc tr (\d+)\s*g$/,m=>'Pão de forma tradicional - Visconti '+m[1]+'g'],
+ [/^salame sadia mini(?: kg)?$/,'Salame mini - Sadia'],
+ [/^carga venus c (\d+) pele$/,m=>'Refil para aparelho de depilação Venus, '+m[1]+' un'],
+ [/^mini chi perd (\d+(?:[.,]\d+)?)\s*kg tr$/,m=>'Mini Chester tradicional - Perdigão '+m[1]+' kg'],
+ [/^always not l(\d+)p(\d+) sv$/,m=>'Absorvente noturno - Always, leve '+m[1]+' e pague '+m[2]],
+ [/^pim po mika (\d+)\s*g$/,m=>'Pimenta em pó - Mika '+m[1]+'g'],
+ [/^sazon marron(?:m)? (\d+)\s*g$/,m=>'Tempero Sazón marrom '+m[1]+'g'],
+ [/^sal ref lebre (\d+)\s*kg$/,m=>'Sal refinado - Lebre '+m[1]+' kg'],
+ [/^acem s o bov(?: fc)?(?: kg)?$/,'Acém bovino sem osso'],
+ [/^banana nanica(?: kg)?$/,'Banana nanica'],
+
  [/^ling calab sadia (\d+)\s*kg$/,m=>'Linguiça calabresa - Sadia '+m[1]+' kg'],
  [/^bisc mari (\d+)\s*g choc$/,m=>'Biscoito de chocolate - Marilan '+m[1]+'g'],
  [/^det ype (\d+)\s*ml care$/,m=>'Detergente Care - Ypê '+m[1]+' mL'],

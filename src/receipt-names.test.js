@@ -53,3 +53,12 @@ test('consulta produtos novos por código e preserva correções e nomes origina
  assert.equal(results[2].name,'ABC XYZ');
  assert.equal(receiptName('OVO BCO GRANDE C/30',[],[]),'Ovos brancos grandes, 30 un');
 });
+
+test('interpreta descrições da nova nota e mantém as abreviações ambíguas',()=>{
+ const name=raw=>receiptName(raw,[],[]);
+ assert.equal(name('P FORMA VISC TR 400G'),'Pão de forma tradicional - Visconti 400g');
+ assert.equal(name('BEB MONSTER 473ML TR'),'Energético Monster tradicional 473 mL');
+ assert.equal(name('BEB MONSTER 473ML AZ'),'Energético Monster azul 473 mL');
+ assert.equal(name('ACEM S/O BOV FC kg'),'Acém bovino sem osso');
+ assert.equal(name('M PIM MEND 215ML DEF'),'M PIM MEND 215ML DEF');
+});
