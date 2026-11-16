@@ -1,4 +1,5 @@
 import './style.css';
+import {receiptName,marketName,marketAliasKey,originalMarket} from './receipt-names.js';
 import {appURL,invitationURL,pendingInvitation,clearInvitation,authMessage,changePassword} from './account.js';
 import {createIcons,icons} from 'lucide';
 import {normalize,money,number,suggestSector,purchaseItem,finishPurchase,unitPrice,parseReceipt,receiptFingerprint} from './domain.js';
@@ -8,6 +9,11 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon=(name,cls='')=>`<i data-lucide="${name}" class="${cls}"></i>`;
 const originalPrice=line=>line.originalPrice??(line.price==null?null:line.price+(line.discount||0)/line.quantity);
+function rememberName(key,name){
+ if(!key||!name)return;
+ const existing=records('alias').find(row=>row.key===key);
+ if(existing?.name!==name)put('alias',{...existing,key,name});
+}
 const priceLabel=price=>price==null?'Sem preço':money(price);
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
 const dateLabel=s=>new Date(s+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
@@ -63,7 +69,7 @@ function itemDialog(item=null,product=null){
  const p=product|| (item?.productId?get(item.productId):null);const value=item||{name:p?.name||'',quantity:1,unit:p?.unit||'un',sector:p?.sector||'Sem setor',price:p?.lastPrice??null,size:p?.size||1,packUnit:p?.packUnit||'un',presentation:p?.presentation||''};
  showModal(item?'Editar item':'Adicionar à lista',`<form id="item-form"><label>Produto<input name="name" id="product-name" list="product-suggestions" value="${esc(value.name)}" placeholder="Ex.: leite integral" maxlength="120" required autocomplete="off"><datalist id="product-suggestions">${records('product').map(p=>`<option value="${esc(p.name)}">${esc(p.sector)}</option>`).join('')}</datalist></label><div id="duplicate-hint" class="field-hint"></div><div class="form-row"><label>Quantidade<input name="quantity" type="number" min="0.001" max="100000" step="0.001" value="${value.quantity}" required></label><label>Unidade<select name="unit">${units(value.unit)}</select></label></div><label>Setor<select name="sector" id="item-sector">${sectorOptions(value.sector)}</select></label><label>Observação <span class="optional">opcional</span><input name="note" value="${esc(value.note)}" maxlength="300" placeholder="Marca preferida, substituição…"></label><div class="form-row"><label>Preço por unidade (R$)<input name="price" type="number" min="0" max="1000000" step="0.01" value="${value.price??''}" placeholder="Opcional"></label><label>Quem pediu<input name="requester" maxlength="60" value="${esc(value.requester||state.name||session.user?.email?.split('@')[0]||'Você')}"></label></div><details><summary>Marca e tamanho da embalagem</summary><label>Apresentação<input name="presentation" maxlength="120" placeholder="Ex.: marca X, integral" value="${esc(value.presentation)}"></label><div class="form-row"><label>Tamanho<input name="size" type="number" min="0.001" step="0.001" value="${value.size||1}"></label><label>Unidade da embalagem<select name="packUnit">${units(value.packUnit||'un')}</select></label></div></details><p id="form-error" class="form-error" role="alert"></p><div class="modal-actions">${item?'<button type="button" class="danger-text" id="remove-item">Remover item</button>':'<button type="button" class="secondary" data-cancel>Cancelar</button>'}<button class="primary" type="submit">${icon('plus')}${item?'Salvar alterações':'Adicionar à lista'}</button></div></form>`);
  let sectorChanged=!!item||!!p;$('#item-sector').onchange=()=>{sectorChanged=true;};
- $('#product-name').oninput=e=>{const name=e.target.value;const existing=records('product').find(p=>normalize(p.name)===normalize(name));if(!sectorChanged)$('#item-sector').value=existing?.sector||suggestSector(name);const dup=records('item').find(i=>i.id!==item?.id&&normalize(i.name)===normalize(name));$('#duplicate-hint').textContent=dup?`Já está na lista (${dup.quantity} ${dup.unit}). Ao adicionar, as quantidades serão somadas.`:'';};
+ $('#product-name').oninput=e=>{const name=e.target.value;const existing=records('product').find(p=>normalize(p.name)===normalize(name));if(!sectorChanged)$('#item-sector').value=existing?.sector||suggestSector(name,sectors());const dup=records('item').find(i=>i.id!==item?.id&&normalize(i.name)===normalize(name));$('#duplicate-hint').textContent=dup?`Já está na lista (${dup.quantity} ${dup.unit}). Ao adicionar, as quantidades serão somadas.`:'';};
  $('[data-cancel]')?.addEventListener('click',closeModal);
  $('#remove-item')?.addEventListener('click',()=>{const old={...item};remove(item.id);closeModal();toast('Item removido.',()=>put('item',old));});
  $('#item-form').onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const qty=number(f.quantity),price=f.price===""?null:number(f.price),size=number(f.size)||1;const name=f.name.trim();if(!name)return;const dup=records('item').find(i=>i.id!==item?.id&&normalize(i.name)===normalize(name));if(dup&&dup.unit!==f.unit){$('#form-error').textContent='Este produto já está na lista com outra unidade. Edite o item existente ou diferencie o nome.';return;}if(item&&qty<(item.bought||0)){$('#form-error').textContent='A quantidade pedida não pode ser menor que a já comprada.';return;}
@@ -76,7 +82,25 @@ function savePurchase(items,market,date,extra={}){return batch(()=>{const {purch
 function productDialog(p){showModal(p?'Editar produto':'Novo produto',`<form id="product-form"><label>Nome<input name="name" required maxlength="120" value="${esc(p?.name)}"></label><label>Setor<select name="sector">${sectorOptions(p?.sector||'Sem setor')}</select></label><label>Unidade<select name="unit">${units(p?.unit||'un')}</select></label><div class="modal-actions">${p?'<button type="button" class="danger-text" id="delete-product">Excluir produto</button>':'<button type="button" class="secondary" data-cancel>Cancelar</button>'}<button class="primary">Salvar produto</button></div><p id="form-error" class="form-error"></p></form>`);$('[data-cancel]')?.addEventListener('click',closeModal);$('#delete-product')?.addEventListener('click',()=>{remove(p.id);closeModal();toast('Produto excluído do catálogo.');});$('#product-form').onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));f.name=f.name.trim();if(!f.name)return;const duplicate=records('product').find(r=>r.id!==p?.id&&normalize(r.name)===normalize(f.name));if(duplicate){$('#form-error').textContent='Já existe um produto com este nome.';return;}put('product',{...p,...f});for(const i of records('item').filter(i=>i.productId===p?.id))put('item',{...i,sector:f.sector});closeModal();toast('Produto salvo.');};}
 function sectorDialog(index){const old=index===undefined?'':sectors()[index];showModal(old?'Renomear setor':'Criar setor',`<form id="sector-form"><label>Nome do setor<input name="name" value="${esc(old)}" maxlength="50" required></label><p id="form-error" class="form-error"></p><div class="modal-actions"><button class="primary">Salvar setor</button></div></form>`);$('#sector-form').onsubmit=e=>{e.preventDefault();const name=new FormData(e.target).get('name').trim();if(!name||sectors().some(s=>s!==old&&normalize(s)===normalize(name))){$('#form-error').textContent='Escolha um nome diferente dos setores existentes.';return;}if(old==='Sem setor'){$('#form-error').textContent='O nome do setor padrão precisa permanecer.';return;}const list=[...sectors()];if(old){list[index]=name;for(const kind of ['item','product'])for(const r of records(kind).filter(r=>r.sector===old))put(kind,{...r,sector:name});}else list.splice(list.length-1,0,name);setSectors(list);closeModal();};}
 function confirmDialog(title,text,fn){showModal(title,`<p>${esc(text)}</p><div class="modal-actions"><button class="secondary" data-cancel>Cancelar</button><button class="primary" id="confirm">Confirmar</button></div>`);$('[data-cancel]').onclick=closeModal;$('#confirm').onclick=()=>{fn();closeModal();};}
-function purchaseDialog(p){showModal(p.market,`<div class="summary-row"><span class="muted">${dateLabel(p.date)} · ${p.lines.length} produtos</span><button class="secondary" id="edit-market">${icon('pencil')}Editar mercado</button></div><div class="purchase-lines">${p.lines.map((l,idx)=>`<label class="history-line"><input type="checkbox" name="repeat" value="${idx}"><span><strong>${esc(l.name)}</strong><small>${l.quantity} ${esc(l.unit||'un')}</small><small>Original: ${priceLabel(originalPrice(l))} · Pago: ${priceLabel(l.price)} por ${esc(l.unit||'un')}${l.allocatedDiscount>0?' · desconto geral rateado':''}</small></span><strong>${priceLabel(l.total)}</strong><button class="icon-btn" data-price-edit="${idx}" aria-label="Editar produto ${esc(l.name)}">${icon('pencil')}</button></label>`).join('')}</div><div class="summary-total"><strong>Total</strong><strong>${money(p.total)}</strong></div><div class="modal-actions"><button class="secondary" id="select-all">Selecionar todos</button><button class="primary" id="repeat-purchase">${icon('plus')}Adicionar selecionados à lista</button></div>`,true);$('#edit-market').onclick=()=>editMarket(p);$('#select-all').onclick=()=>document.querySelectorAll('[name=repeat]').forEach(el=>el.checked=true);$('#repeat-purchase').onclick=()=>{const selected=[...document.querySelectorAll('[name=repeat]:checked')].map(e=>p.lines[+e.value]);if(!selected.length)return toast('Selecione os produtos que quer comprar novamente.');for(const l of selected){const existing=records('item').find(i=>normalize(i.name)===normalize(l.name)&&i.unit===l.unit);if(!existing)put('item',{...l,id:undefined,quantity:l.quantity,bought:0,createdAt:Date.now(),requester:state.name||'Você'});}closeModal();page='list';app();toast('Produtos adicionados. Os que já estavam na lista foram mantidos.');};document.querySelectorAll('[data-price-edit]').forEach(el=>el.onclick=e=>{e.preventDefault();priceEdit(p,+el.dataset.priceEdit);});}
+function purchaseDialog(p){showModal(p.market,`<div class="summary-row"><span class="muted">${dateLabel(p.date)} · ${p.lines.length} produtos</span><button class="secondary" id="edit-market">${icon('pencil')}Editar mercado</button></div><div class="purchase-lines">${p.lines.map((l,idx)=>`<label class="history-line"><input type="checkbox" name="repeat" value="${idx}"><span><strong>${esc(l.name)}</strong><small>${l.quantity} ${esc(l.unit||'un')}</small><small>Original: ${priceLabel(originalPrice(l))} · Pago: ${priceLabel(l.price)} por ${esc(l.unit||'un')}${l.allocatedDiscount>0?' · desconto geral rateado':''}</small></span><strong>${priceLabel(l.total)}</strong><button class="icon-btn" data-price-edit="${idx}" aria-label="Editar produto ${esc(l.name)}">${icon('pencil')}</button></label>`).join('')}</div><div class="summary-total"><strong>Total</strong><strong>${money(p.total)}</strong></div><div class="modal-actions"><button class="danger-text" id="delete-purchase">Excluir compra</button><button class="secondary" id="select-all">Selecionar todos</button><button class="primary" id="repeat-purchase">${icon('plus')}Adicionar selecionados à lista</button></div>`,true);$('#edit-market').onclick=()=>editMarket(p);$('#delete-purchase').onclick=()=>deletePurchase(p);$('#select-all').onclick=()=>document.querySelectorAll('[name=repeat]').forEach(el=>el.checked=true);$('#repeat-purchase').onclick=()=>{const selected=[...document.querySelectorAll('[name=repeat]:checked')].map(e=>p.lines[+e.value]);if(!selected.length)return toast('Selecione os produtos que quer comprar novamente.');for(const l of selected){const existing=records('item').find(i=>normalize(i.name)===normalize(l.name)&&i.unit===l.unit);if(!existing)put('item',{...l,id:undefined,quantity:l.quantity,bought:0,createdAt:Date.now(),requester:state.name||'Você'});}closeModal();page='list';app();toast('Produtos adicionados. Os que já estavam na lista foram mantidos.');};document.querySelectorAll('[data-price-edit]').forEach(el=>el.onclick=e=>{e.preventDefault();priceEdit(p,+el.dataset.priceEdit);});}
+function deletePurchase(p){
+ confirmDialog('Excluir esta compra?', 'A compra será removida do histórico e o cupom poderá ser importado novamente. Os nomes corrigidos serão mantidos.',()=>{
+  const current=get(p.id);
+  if(!current)return;
+  batch(()=>{
+   const source=originalMarket(current);
+   if(normalize(source)!==normalize(current.market)&&!records('alias').some(alias=>alias.key===marketAliasKey(source))){
+    rememberName(marketAliasKey(source),current.market);
+   }
+   for(const line of current.lines){
+    const key=normalize(line.sourceName);
+    if(key&&key!==normalize(line.name)&&!records('alias').some(alias=>alias.key===key))rememberName(key,line.name);
+   }
+   remove(p.id);
+  });
+  toast('Compra excluída. Você já pode importar o cupom novamente.');
+ });
+}
 function editMarket(p){
  showModal('Editar mercado','<form id="market-edit"><label>Nome do mercado<input name="market" maxlength="120" required value="'+esc(p.market)+'"></label><div class="modal-actions"><button type="button" class="secondary" id="back-purchase">Voltar</button><button class="primary">Salvar nome</button></div></form>');
  $('#back-purchase').onclick=()=>purchaseDialog(get(p.id)||p);
@@ -86,8 +110,9 @@ function editMarket(p){
   if(!market){form.elements.market.setCustomValidity('Informe o nome do mercado.');form.elements.market.reportValidity();return;}
   const current=get(p.id);
   if(!current){closeModal();return toast('Compra não encontrada.');}
-  const updated={...current,market};
-  put('purchase',updated);
+  const marketSource=originalMarket(current);
+  const updated={...current,market,marketSource};
+  batch(()=>{rememberName(marketAliasKey(marketSource),market);rememberName(marketAliasKey(current.market),market);put('purchase',updated);});
   purchaseDialog(updated);
   toast('Nome do mercado atualizado.');
  };
@@ -105,8 +130,18 @@ function priceEdit(p,idx){const l=p.lines[idx];showModal('Editar produto da comp
   discount:original===originalPrice(v)&&price===v.price?v.discount:original==null||price==null?0:Math.round((original-price)*v.quantity*100)/100,
   allocatedDiscount:original===originalPrice(v)&&price===v.price?v.allocatedDiscount:0,
   size:number(f.size),total:price===v.price?v.total:price==null?null:Math.round(price*v.quantity*100)/100}:v);
+ const oldLine=current.lines[idx];
  const updated={...current,lines,total:Math.round(lines.reduce((s,l)=>s+(l.total??0),0)*100)/100};
- put('purchase',updated);
+ batch(()=>{
+  if(name!==oldLine.name){
+   rememberName(normalize(oldLine.sourceName||oldLine.name),name);
+   rememberName(normalize(oldLine.name),name);
+   const catalog=get(oldLine.productId);
+   const duplicate=records('product').some(product=>product.id!==catalog?.id&&normalize(product.name)===normalize(name));
+   if(catalog&&!duplicate&&normalize(catalog.name)===normalize(oldLine.name))put('product',{...catalog,name});
+  }
+  put('purchase',updated);
+ });
  purchaseDialog(updated);
  toast('Produto atualizado.');
  };$('#price-edit [name=name]').oninput=event=>event.target.setCustomValidity('');}
@@ -299,7 +334,10 @@ function conflictDialog() {
  }
 }
 function receiptDialog(draft={lines:[],market:'',date:today()}) {
- showModal('Revisar cupom', `<div class="form-row"><label>Foto para OCR<input type="file" id="ocr" accept="image/*" capture="environment"></label><label>Imagem com QR Code<input type="file" id="qr" accept="image/*"></label><label>XML fiscal ou página HTML salva<input type="file" id="xml" multiple accept=".xml,.html,.htm,application/xml,text/xml,text/html"></label></div><p id="receipt-status" role="status"></p><form id="receipt-form"><div class="form-row"><label>Mercado<input name="market" value="${esc(draft.market)}" required></label><label>Data<input name="date" type="date" value="${esc(draft.date||today())}" required></label></div><label>Total do cupom (R$)<input name="expected" type="number" min="0" step=".01" value="${esc(draft.expected)}"></label><label>Desconto geral do cupom (R$)<input name="receiptDiscount" type="number" min="0" step=".01" value="${esc(draft.discount??0)}"></label><datalist id="receipt-products">${records('product').map(p=>`<option value="${esc(p.name)}"></option>`).join('')}</datalist><div id="receipt-lines"></div><button class="secondary" id="add-line" type="button">Adicionar linha</button><output id="receipt-total"></output><button class="primary">Salvar compra revisada</button></form>`,true);
+ const aliases=records('alias'),history=records('purchase').reverse(),products=records('product');
+ const marketSource=draft.market?.trim()||'';
+ const displayMarket=marketName(marketSource,aliases,history);
+ showModal('Revisar cupom', `<div class="form-row"><label>Foto para OCR<input type="file" id="ocr" accept="image/*" capture="environment"></label><label>Imagem com QR Code<input type="file" id="qr" accept="image/*"></label><label>XML fiscal ou página HTML salva<input type="file" id="xml" multiple accept=".xml,.html,.htm,application/xml,text/xml,text/html"></label></div><p id="receipt-status" role="status"></p><form id="receipt-form"><div class="form-row"><label>Mercado<input name="market" value="${esc(displayMarket)}" required></label><label>Data<input name="date" type="date" value="${esc(draft.date||today())}" required></label></div><label>Total do cupom (R$)<input name="expected" type="number" min="0" step=".01" value="${esc(draft.expected)}"></label><label>Desconto geral do cupom (R$)<input name="receiptDiscount" type="number" min="0" step=".01" value="${esc(draft.discount??0)}"></label><datalist id="receipt-products">${records('product').map(p=>`<option value="${esc(p.name)}"></option>`).join('')}</datalist><div id="receipt-lines"></div><button class="secondary" id="add-line" type="button">Adicionar linha</button><output id="receipt-total"></output><button class="primary">Salvar compra revisada</button></form>`,true);
  const form = $('#receipt-form');
  function lines() {
   return [...form.querySelectorAll('fieldset')].map(row=>{
@@ -322,8 +360,7 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
   totals();
  }
  for(const line of draft.lines) {
-  const alias=records('alias').find(row=>row.key===normalize(line.name));
-  add({...line,sourceName:line.name,name:alias?.name||line.name});
+  add({...line,sourceName:line.name,name:receiptName(line.name,products,aliases,history)});
  }
  form.oninput=totals;
  $('#add-line').onclick=()=>add();
@@ -350,7 +387,7 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
   const entries=lines(),market=form.elements.market.value.trim(),date=form.elements.date.value;
   const status=$('#receipt-status');
   if(!market||!entries.length||entries.some(line=>!line.name||line.total<0)){status.textContent='Confira o mercado, os produtos e os descontos.';return;}
-  const fingerprint=receiptFingerprint(entries.map(line=>({...line,price:line.total})),market,date)+(number(form.elements.receiptDiscount.value)?'|desconto:'+form.elements.receiptDiscount.value:'');
+  const fingerprint=receiptFingerprint(entries.map(line=>({...line,name:line.sourceName||line.name,price:line.total})),marketSource||market,date)+(number(form.elements.receiptDiscount.value)?'|desconto:'+form.elements.receiptDiscount.value:'');
   if(records('purchase').some(row=>row.fingerprint===fingerprint || (draft.key&&row.receiptKey===draft.key))){status.textContent='Este cupom já aparece no histórico.';return;}
   const receiptDiscount=number(form.elements.receiptDiscount.value);
   const subtotal=entries.reduce((sum,line)=>sum+line.total,0);
@@ -358,6 +395,7 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
   const expected=form.elements.expected.value;
   if(expected!==''&&Math.abs(number(expected)-(subtotal-receiptDiscount))>=.01&&!window.confirm('A soma diverge do total do cupom. Salvar assim mesmo?'))return;
   batch(()=>{
+  if(marketSource&&market!==displayMarket)rememberName(marketAliasKey(marketSource),market);
   let allocated=0,grossThroughLine=0;
   const discountCents=Math.round(receiptDiscount*100),subtotalCents=Math.round(subtotal*100);
   for(const line of entries){
@@ -371,19 +409,16 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
   }
   const pending=records('item');
   for(const line of entries){
-   const product=records('product').find(row=>normalize(row.name)===normalize(line.name));
-   const item=pending.find(row=>row.unit===line.unit&&normalize(row.name)===normalize(line.name));
-   const sector=product?.sector||item?.sector||suggestSector(line.name);
+   const product=records('product').find(row=>normalize(row.name)===normalize(line.name))||records('product').find(row=>normalize(row.name)===normalize(line.sourceName));
+   const item=pending.find(row=>row.unit===line.unit&&(normalize(row.name)===normalize(line.name)||normalize(row.name)===normalize(line.sourceName)));
+   const sector=product?.sector||item?.sector||suggestSector(line.name,sectors());
    line.productId=put('product',{...product,name:line.name,unit:line.unit,sector,lastPrice:line.total/line.quantity});
    line.sector=sector;
    line.price=line.total/line.quantity;
    if(item)item.receiptQuantity=(item.receiptQuantity||0)+line.quantity;
-   if(line.sourceName&&normalize(line.sourceName)!==normalize(line.name)){
-    const key=normalize(line.sourceName), alias=records('alias').find(row=>row.key===key);
-    put('alias',{...alias,key,name:line.name});
-   }
+   if(line.sourceName&&line.name!==line.sourceName)rememberName(normalize(line.sourceName),line.name);
   }
-  put('purchase',{market,date,lines:entries,total:Math.round(entries.reduce((sum,line)=>sum+line.total,0)*100)/100,fingerprint,receiptKey:draft.key});
+  put('purchase',{market,marketSource:marketSource||market,date,lines:entries,total:Math.round(entries.reduce((sum,line)=>sum+line.total,0)*100)/100,fingerprint,receiptKey:draft.key});
   for(const item of pending.filter(row=>row.receiptQuantity)){
    const {receiptQuantity,...data}=item;
    const balance=Math.round((data.quantity-receiptQuantity)*1000)/1000;

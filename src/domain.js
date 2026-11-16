@@ -2,10 +2,27 @@ export const DEFAULT_SECTORS = ['Hortifruti','Padaria','Laticínios','Carnes e o
 export const normalize = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 export const money = n => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(n)||0);
 export const number = v => Number(String(v ?? '').replace(/\s/g,'').replace(',','.'));
-export function suggestSector(name) {
+export function suggestSector(name, available=DEFAULT_SECTORS) {
  const n=normalize(name);
- const groups=[['Hortifruti',/banana|maca|alface|tomate|batata|cebola|cenoura|fruta|limao|laranja|abac|brocol|verdura/],['Padaria',/pao|bolo|biscoito|torrada/],['Laticínios',/leite|queijo|iogurte|manteiga|requeijao/],['Carnes e ovos',/carne|frango|ovo|peixe|bife|linguica/],['Bebidas',/agua|suco|refrigerante|cerveja|vinho/],['Limpeza',/detergente|sabao|amaciante|desinfetante|esponja|alvejante/],['Higiene',/sabonete|shampoo|papel higienico|creme dental|desodorante/],['Mercearia',/arroz|feijao|cafe|acucar|sal\b|oleo|azeite|macarrao|farinha|molho/]];
- return groups.find(([,r])=>r.test(n))?.[0]||'Sem setor';
+ const byName=new Map(available.map(label=>[normalize(label),label]));
+ const custom=available.find(label=>label!=='Sem setor'&&!DEFAULT_SECTORS.includes(label)&&(' '+n+' ').includes(' '+normalize(label)+' '));
+ if(custom)return custom;
+ const groups=[
+  [['Salgadinhos','Mercearia'],/\b(salgadinh\w*|chips|doritos|cheetos|ruffles|fandangos|baconzitos|pipoca|popcor\w*)\b/],
+  [['Higiene'],/\b(sabonete|shampoo|xampu|condicionador|papel higienico|creme dental|desodorante|absorvente|fralda)\b/],
+  [['Limpeza'],/\b(detergente|sabao|amaciante|desinfetante|esponja|alvejante|agua sanitaria|limpa vidros|multiuso)\b/],
+  [['Laticínios'],/\b(leite|queijo|iogurte|manteiga|requeijao|creme de leite|coalhada|muss\w*|mozzarella|mucarela|burrata|ricota)\b/],
+  [['Carnes e ovos'],/\b(carne|frango|ovos?|peixe|bife|linguica|file peito|peito de frango|tilapia|patinho|acem|calabresa)\b/],
+  [['Hortifruti'],/\b(banana|maca|alface|tomate|batata|cebola|cenoura|fruta|limao|laranja|abac\w*|brocol\w*|verdura|alho|pepino|manga|pera|mamao|coentro|salsinha)\b/],
+  [['Padaria'],/\b(pao|bolo|torrada|croissant|baguete|bisnaguinha)\b/],
+  [['Bebidas'],/\b(agua|suco|refrigerante|cerveja|vinho|energetico|coca cola|guarana|fanta)\b/],
+  [['Mercearia'],/\b(arroz|feijao|cafe|acucar|sal|oleo|azeite|macarrao|farinha|molho|biscoito|bolacha|farofa|nutella|creme de avela|leite condensado|l cond|milho|aveia|chocolate)\b/],
+ ];
+ if(/\b(leite condensado|l cond)\b/.test(n))return byName.get('mercearia')||'Sem setor';
+ for(const [names,rule] of groups){
+  if(rule.test(n))return names.map(value=>byName.get(normalize(value))).find(Boolean)||'Sem setor';
+ }
+ return 'Sem setor';
 }
 export function purchaseItem(item,qty,price) {
  if(!Number.isFinite(qty)||qty<=0||qty>item.quantity) throw Error('Informe uma quantidade entre zero e a quantidade pedida.');
