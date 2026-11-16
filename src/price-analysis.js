@@ -52,3 +52,18 @@ export function sectorChanges(series,sectors){
   return [{sector,count:items.length,change:items.reduce((sum,item)=>sum+item.change,0)/items.length}];
  });
 }
+
+export function latestByMarket(series){
+ const last=new Map();
+ for(const point of series.points){
+  const key=normalize(point.market);
+  if(key&&!last.has(key))last.set(key,point);
+ }
+ return [...last.values()].sort((a,b)=>a.price-b.price||b.date.localeCompare(a.date));
+}
+
+export function matchingPriceSeries(item,series){
+ return series.filter(group=>normalize(group.name)===normalize(item.name)&&group.unit===(item.unit||'un')&&
+  (!(item.size>1)||(group.size===item.size&&(group.packUnit||'un')===(item.packUnit||'un')))&&
+  (!item.presentation||normalize(group.presentation)===normalize(item.presentation)));
+}

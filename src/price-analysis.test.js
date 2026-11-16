@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {purchasePrices,latestCatalogPrice,discountPerUnit,priceSeries,sectorChanges} from './price-analysis.js';
+import {purchasePrices,latestCatalogPrice,discountPerUnit,priceSeries,sectorChanges,latestByMarket,matchingPriceSeries} from './price-analysis.js';
 import {suggestSector,DEFAULT_SECTORS} from './domain.js';
 
 const product={id:'aveia',name:'Aveia',sector:'Mercearia',unit:'un',size:500,packUnit:'g'};
@@ -37,4 +37,16 @@ test('variação usa compras distintas, separa embalagens e agrega por setor',()
 test('tecnologia é sugerida para cabo USB e pilhas',()=>{
  assert.equal(suggestSector('Cabo USB-C'),'Tecnologia');
  assert.equal(suggestSector('Pilhas AAA'),'Tecnologia');
+});
+
+test('compara só o último preço pago por mercado e preserva a apresentação',()=>{
+ const purchases=[
+  {id:'a-new',market:'Mercado A',date:'2026-11-16',lines:[{...line,price:9}]},
+  {id:'b',market:'Mercado B',date:'2026-11-15',lines:[{...line,price:8},{...line,size:1000,price:4}]},
+  {id:'a-old',market:'Mercado A',date:'2026-11-12',lines:[{...line,price:5}]}
+ ];
+ const series=priceSeries(purchasePrices(purchases),[product],DEFAULT_SECTORS);
+ const matching=matchingPriceSeries(product,series);
+ assert.equal(matching.length,1);
+ assert.deepEqual(latestByMarket(matching[0]).map(p=>[p.market,p.price]),[['Mercado B',8],['Mercado A',9]]);
 });
