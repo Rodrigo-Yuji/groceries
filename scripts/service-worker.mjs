@@ -11,7 +11,7 @@ await writeFile('dist/sw.js',`
 const cacheName=${JSON.stringify(name)};
 const scope=new URL(self.registration.scope);
 const shell=new Map(${JSON.stringify(files)}.map(file=>[new URL(file,scope).href,file]));
-self.addEventListener('install',event=>event.waitUntil(caches.open(cacheName).then(cache=>cache.addAll([...shell.keys()]))));
+self.addEventListener('install',event=>event.waitUntil(caches.open(cacheName).then(cache=>cache.addAll([...shell.keys()])).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil((async()=>{
  for(const key of await caches.keys())if(key.startsWith('groceries-')&&key!==cacheName)await caches.delete(key);
  await self.clients.claim();
@@ -22,7 +22,7 @@ self.addEventListener('fetch',event=>{
  if(request.method!=='GET'||url.origin!==scope.origin)return;
  if(request.mode==='navigate'&&[scope.pathname,scope.pathname+'index.html'].includes(url.pathname)){
   if(url.search||url.hash)return;
-  event.respondWith(caches.open(cacheName).then(cache=>cache.match(new URL('index.html',scope))).then(response=>response||fetch(request)));
+  event.respondWith((async()=>{const cache=await caches.open(cacheName);try{const live=await fetch(request,{cache:'no-cache'});if(live.ok&&(await live.clone().text()).includes(scope.pathname+'assets/'))return live;}catch{}return (await cache.match(new URL('index.html',scope)))||Response.error();})());
  }else if(shell.has(url.href)){
   event.respondWith(caches.open(cacheName).then(cache=>cache.match(request)).then(response=>response||fetch(request)));
  }
