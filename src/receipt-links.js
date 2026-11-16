@@ -1,4 +1,5 @@
 import {normalize} from './domain.js';
+import {requestSearchKey} from './catalog-search.js';
 
 const measures={g:[1,'mass'],kg:[1000,'mass'],ml:[1,'volume'],L:[1000,'volume']};
 const counted=new Set(['un','pacote']);
@@ -35,7 +36,8 @@ export function suggestRequestLinks(lines,requests,aliases){
    return names.has(key)||(saved&&names.has(normalize(saved.name)));
   });
   if(exact.length)return {exact};
-  return {generic:compatible.filter(request=>[...names].some(name=>includesTokens(request.name,name)))};
+  return {generic:compatible.filter(request=>[...names].some(name=>includesTokens(request.name,name))||
+   aliases.some(alias=>alias.key===requestSearchKey(request.name,line.name)))};
  });
  return matched.map(({exact,generic},index)=>{
   if(exact)return exact.length===1?exact[0].id:'';

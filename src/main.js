@@ -1,4 +1,5 @@
 import './style.css';
+import {catalogSuggestions,equivalentRequestNames,requestSearchKey} from './catalog-search.js';
 import {requestedQuantity,suggestRequestLinks} from './receipt-links.js';
 import {enhanceMoneyFields} from './money-input.js';
 import {purchasePrices,latestCatalogPrice,discountPerUnit,priceSeries,sectorChanges,latestByMarket,matchingPriceSeries,hasPackageSize,searchPriceSeries,priceChartTimeline,filterAndSortPrices} from './price-analysis.js';
@@ -431,7 +432,7 @@ function sectorOptions(selected){return [...new Set([...sectors(),selected].filt
 function units(selected='un'){return ['un','kg','g','L','ml','pacote','caixa'].map(s=>`<option ${s===selected?'selected':''}>${s}</option>`).join('');}
 function itemDialog(item=null,product=null){
  const p=product|| (item?.productId?get(item.productId):null);const value=item||{name:p?.name||'',quantity:1,unit:p?.unit||'un',sector:p?.sector||'Sem setor',price:p?.lastPrice??null,size:p?.size||1,packUnit:p?.packUnit||'un',presentation:p?.presentation||''};
- showModal(item?'Editar item':'Adicionar à lista',`<form id="item-form"><label>Produto<input name="name" id="product-name" list="product-suggestions" value="${esc(value.name)}" placeholder="Ex.: leite integral" maxlength="120" required autocomplete="off"><datalist id="product-suggestions">${records('product').map(p=>`<option value="${esc(p.name)}">${esc(p.sector)}</option>`).join('')}</datalist></label><div id="duplicate-hint" class="field-hint"></div><div id="catalog-matches" class="catalog-matches"></div><div class="form-row"><div><label for="item-quantity">Quantidade</label><div class="catalog-quantity item-quantity-stepper"><button type="button" class="icon-btn" data-item-qty="-1" aria-label="Diminuir uma unidade">${icon('minus')}</button><input id="item-quantity" name="quantity" type="number" min="0.001" max="100000" step="0.001" inputmode="decimal" value="${value.quantity}" required><button type="button" class="icon-btn" data-item-qty="1" aria-label="Aumentar uma unidade">${icon('plus')}</button></div></div><label>Unidade<select name="unit">${units(value.unit)}</select></label></div><label>Setor<select name="sector" id="item-sector">${sectorOptions(value.sector)}</select></label><label>Observação para quem fará as compras <span class="optional">opcional</span><input name="note" value="${esc(value.note)}" maxlength="300" placeholder="Marca preferida, substituição…"></label><div class="form-row"><label>Preço por unidade (R$)<input name="price" type="number" min="0" max="1000000" step="0.01" value="${value.price??''}" placeholder="Opcional"></label><label>Quem pediu<input name="requester" maxlength="60" value="${esc(value.requester||state.name||session.user?.email?.split('@')[0]||'Você')}"></label></div><details><summary>Marca e tamanho da embalagem</summary><label>Apresentação<input name="presentation" maxlength="120" placeholder="Ex.: marca X, integral" value="${esc(value.presentation)}"></label><div class="form-row"><label>Tamanho<input name="size" type="number" min="0.001" step="0.001" value="${value.size||1}"></label><label>Unidade da embalagem<select name="packUnit">${units(value.packUnit||'un')}</select></label></div></details>${!item?'<label class="item-bought-now"><input type="checkbox" name="boughtNow">Já comprei este item</label>':''}<p id="form-error" class="form-error" role="alert"></p><div class="modal-actions">${item?'<button type="button" class="danger-text" id="remove-item">Remover item</button>':'<button type="button" class="secondary" data-cancel>Cancelar</button>'}<button class="primary" type="submit">${icon('plus')}${item?'Salvar alterações':'Adicionar à lista'}</button></div></form>`);
+ showModal(item?'Editar item':'Adicionar à lista',`<form id="item-form"><label>Produto<input name="name" id="product-name" list="product-suggestions" value="${esc(value.name)}" placeholder="Ex.: leite integral" maxlength="120" required autocomplete="off"><datalist id="product-suggestions">${records('product').map(p=>`<option value="${esc(p.name)}">${esc(p.sector)}</option>`).join('')}</datalist></label><div id="duplicate-hint" class="field-hint"></div><div id="catalog-matches" class="catalog-matches"></div>${!item?'<button type="button" class="text-btn" id="request-generic" aria-pressed="false" hidden>Pedir sem escolher marca ou tamanho</button>':''}<div class="form-row"><div><label for="item-quantity">Quantidade</label><div class="catalog-quantity item-quantity-stepper"><button type="button" class="icon-btn" data-item-qty="-1" aria-label="Diminuir uma unidade">${icon('minus')}</button><input id="item-quantity" name="quantity" type="number" min="0.001" max="100000" step="0.001" inputmode="decimal" value="${value.quantity}" required><button type="button" class="icon-btn" data-item-qty="1" aria-label="Aumentar uma unidade">${icon('plus')}</button></div></div><label>Unidade<select name="unit">${units(value.unit)}</select></label></div><label>Setor<select name="sector" id="item-sector">${sectorOptions(value.sector)}</select></label><label>Observação para quem fará as compras <span class="optional">opcional</span><input name="note" value="${esc(value.note)}" maxlength="300" placeholder="Marca preferida, substituição…"></label><div class="form-row"><label>Preço por unidade (R$)<input name="price" type="number" min="0" max="1000000" step="0.01" value="${value.price??''}" placeholder="Opcional"></label><label>Quem pediu<input name="requester" maxlength="60" value="${esc(value.requester||state.name||session.user?.email?.split('@')[0]||'Você')}"></label></div><details><summary>Marca e tamanho da embalagem</summary><label>Apresentação<input name="presentation" maxlength="120" placeholder="Ex.: marca X, integral" value="${esc(value.presentation)}"></label><div class="form-row"><label>Tamanho<input name="size" type="number" min="0.001" step="0.001" value="${value.size||1}"></label><label>Unidade da embalagem<select name="packUnit">${units(value.packUnit||'un')}</select></label></div></details>${!item?'<label class="item-bought-now"><input type="checkbox" name="boughtNow">Já comprei este item</label>':''}<p id="form-error" class="form-error" role="alert"></p><div class="modal-actions">${item?'<button type="button" class="danger-text" id="remove-item">Remover item</button>':'<button type="button" class="secondary" data-cancel>Cancelar</button>'}<button class="primary" type="submit">${icon('plus')}${item?'Salvar alterações':'Adicionar à lista'}</button></div></form>`);
  const quantity=$('#item-quantity');
  for(const button of document.querySelectorAll('[data-item-qty]')){
   button.onclick=()=>{
@@ -443,27 +444,49 @@ function itemDialog(item=null,product=null){
  }
  let sectorChanged=!!item||!!p;$('#item-sector').onchange=()=>{sectorChanged=true;};
  let unitChanged=!!item||!!p;
+ let generic=Boolean(item?.generic),mergeId='';
  const form=$('#item-form');
- form.elements.unit.onchange=()=>{unitChanged=true;};
  const productInput=$('#product-name');
+ const genericButton=$('#request-generic');
  const updateProduct=()=>{
-  const name=productInput.value,existing=resolveCatalogProduct(name);
+  const name=productInput.value,existing=generic?null:resolveCatalogProduct(name);
   if(!sectorChanged)$('#item-sector').value=existing?.sector||suggestSector(name,sectors());
   if(!unitChanged&&existing?.unit)form.elements.unit.value=existing.unit;
-  const dup=records('item').find(row=>row.id!==item?.id&&normalize(row.name)===normalize(existing?.name||name));
-  $('#duplicate-hint').textContent=dup?'Já está na lista. Ao adicionar, as quantidades serão somadas.':
-   existing&&existing.name!==name?'Já cadastrado como '+existing.name:'';
-  const matches=$('#catalog-matches');
+  const pending=records('item').filter(row=>row.id!==item?.id&&row.unit===form.elements.unit.value);
+  const sameProduct=row=>existing?row.productId===existing.id:!row.productId;
+  const exact=pending.find(row=>sameProduct(row)&&normalize(row.name)===normalize(existing?.name||name));
+  const similar=pending.filter(row=>sameProduct(row)&&row.quantity>(row.bought||0)&&equivalentRequestNames(row.name,name));
+  const merge='#catalog-matches';
+  const matches=$(merge);
   matches.replaceChildren();
-  const term=normalize(name);
-  if(existing||term.length<3)return;
-  for(const candidate of records('product').filter(product=>(' '+normalize(product.name)+' ').includes(' '+term+' ')).slice(0,4)){
-   const button=Object.assign(document.createElement('button'),{type:'button',className:'secondary',textContent:candidate.name});
-   button.onclick=()=>{productInput.value=candidate.name;updateProduct();};
-   matches.append(button);
+  const createOption=(text,click)=>{
+   const button=Object.assign(document.createElement('button'),{type:'button',className:'secondary',textContent:text});
+   button.onclick=click;
+   return button;
+  };
+  if(similar.length===1&&!exact&&mergeId!==similar[0].id){
+   const [target]=similar;
+   matches.append(createOption('Somar ao pedido: '+target.name,()=>{mergeId=target.id;updateProduct();}));
+  }
+  $('#duplicate-hint').textContent=mergeId?'A quantidade será somada ao pedido escolhido.':
+   exact?'Já está na lista. Ao adicionar, as quantidades serão somadas.':
+   existing&&existing.name!==name?'Já cadastrado como '+existing.name:'';
+  if(genericButton){
+   genericButton.hidden=!name.trim();
+   genericButton.setAttribute('aria-pressed',String(generic));
+   genericButton.textContent=generic?'Pedido sem marca ou tamanho':'Pedir sem escolher marca ou tamanho';
+  }
+  if(generic||existing)return;
+  for(const candidate of catalogSuggestions(name,records('product'),records('alias')).slice(0,5)){
+   matches.append(createOption(candidate.name,()=>{
+    mergeId='';generic=false;productInput.value=candidate.name;updateProduct();
+   }));
   }
  };
- productInput.oninput=updateProduct;
+ form.elements.unit.onchange=()=>{unitChanged=true;mergeId='';updateProduct();};
+ productInput.oninput=()=>{generic=false;mergeId='';updateProduct();};
+ if(genericButton)genericButton.onclick=()=>{generic=!generic;mergeId='';updateProduct();};
+ updateProduct();
  $('[data-cancel]')?.addEventListener('click',closeModal);
  $('#remove-item')?.addEventListener('click',()=>{const old={...item};remove(item.id);closeModal();toast('Item removido.',()=>put('item',old));});
  form.onsubmit=event=>{
@@ -472,9 +495,12 @@ function itemDialog(item=null,product=null){
   const qty=number(f.quantity),price=f.price===''?null:number(f.price),size=number(f.size)||1;
   const typed=f.name.trim();
   if(!typed)return;
-  const existing=resolveCatalogProduct(typed),name=existing?.name||typed;
-  const dup=records('item').find(row=>row.id!==item?.id&&normalize(row.name)===normalize(name)&&row.unit===f.unit);
-  const otherUnit=records('item').some(row=>row.id!==item?.id&&normalize(row.name)===normalize(name)&&row.unit!==f.unit);
+  const existing=generic?null:resolveCatalogProduct(typed),name=existing?.name||typed;
+  const sameProduct=row=>existing?row.productId===existing.id:!row.productId;
+  const matches=records('item').filter(row=>row.id!==item?.id&&sameProduct(row));
+  const dup=matches.find(row=>row.id===mergeId&&row.unit===f.unit&&equivalentRequestNames(row.name,typed))||
+   matches.find(row=>normalize(row.name)===normalize(name)&&row.unit===f.unit);
+  const otherUnit=matches.some(row=>normalize(row.name)===normalize(name)&&row.unit!==f.unit);
   if(!dup&&otherUnit){$('#form-error').textContent='Este produto já está na lista com outra unidade. Edite o item existente ou diferencie o nome.';return;}
   if(item&&qty<(item.bought||0)){$('#form-error').textContent='A quantidade pedida não pode ser menor que a já comprada.';return;}
   const {boughtNow,...fields}=f;
@@ -491,7 +517,7 @@ function itemDialog(item=null,product=null){
     put('item',{...dup,quantity,bought:Math.round(bought*1000)/1000,paidPrice});
     if(item)remove(item.id);
    }else{
-    const row={...item,...fields,name,quantity:qty,price,size,productId,bought:item?.bought||0,createdAt:item?.createdAt||Date.now()};
+    const row={...item,...fields,name,quantity:qty,price,size,productId,generic:!productId,bought:item?.bought||0,createdAt:item?.createdAt||Date.now()};
     put('item',alreadyBought?purchaseItem(row,qty,price):row);
    }
   });
@@ -765,23 +791,29 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
  const aliases=records('alias'),history=records('purchase').reverse(),requests=records('item');
  const marketSource=draft.market?.trim()||'';
  const displayMarket=marketName(marketSource,aliases,history);
- showModal('Revisar cupom', `<div class="form-row"><label>Foto para OCR<input type="file" id="ocr" accept="image/*" capture="environment"></label><label>Imagem com QR Code<input type="file" id="qr" accept="image/*"></label><label>XML fiscal ou página HTML salva<input type="file" id="xml" multiple accept=".xml,.html,.htm,application/xml,text/xml,text/html"></label></div><p id="receipt-status" role="status"></p><form id="receipt-form"><div class="form-row"><label>Mercado<input name="market" value="${esc(displayMarket)}" required></label><label>Data<input name="date" type="date" value="${esc(draft.date||today())}" required></label></div><label>Total do cupom (R$)<input name="expected" type="number" min="0" step=".01" value="${esc(draft.expected)}"></label><label>Desconto geral do cupom (R$)<input name="receiptDiscount" type="number" min="0" step=".01" value="${esc(draft.discount??0)}"></label><datalist id="receipt-products">${records('product').map(p=>`<option value="${esc(p.name)}"></option>`).join('')}</datalist><div id="receipt-lines"></div><button class="secondary" id="add-line" type="button">Adicionar linha</button><output id="receipt-total"></output><button class="primary">Salvar compra revisada</button></form>`,true);
+ showModal('Revisar cupom', `<div class="form-row"><label>Foto para OCR<input type="file" id="ocr" accept="image/*" capture="environment"></label><label>Imagem com QR Code<input type="file" id="qr" accept="image/*"></label><label>XML fiscal ou página HTML salva<input type="file" id="xml" multiple accept=".xml,.html,.htm,application/xml,text/xml,text/html"></label></div><p id="receipt-status" role="status"></p><form id="receipt-form"><div class="form-row"><label>Mercado<input name="market" value="${esc(displayMarket)}" required></label><label>Data<input name="date" type="date" value="${esc(draft.date||today())}" required></label></div><label>Total do cupom (R$)<input name="expected" type="number" min="0" step=".01" value="${esc(draft.expected)}"></label><label>Desconto geral do cupom (R$)<input name="receiptDiscount" type="number" min="0" step=".01" value="${esc(draft.discount??0)}"></label><datalist id="receipt-products">${records('product').map(p=>`<option value="${esc(p.name)}"></option>`).join('')}</datalist><div id="receipt-review" class="receipt-review" hidden><span></span><button class="secondary" type="button">Ir ao primeiro sem vínculo</button></div><div id="receipt-lines"></div><button class="secondary" id="add-line" type="button">Adicionar linha</button><output id="receipt-total"></output><button class="primary">Salvar compra revisada</button></form>`,true);
  const form = $('#receipt-form');
+ let nextOrder=draft.lines.length;
+ const review=$('#receipt-review');
+ review.querySelector('button').onclick=()=>form.querySelector('[data-review-needed] select[data-field=request]')?.focus();
  const linkOptions=requests.map(req=>'<option value="'+esc(req.id)+'">'+esc(req.name)+' · '+req.quantity+' '+esc(req.unit||'un')+'</option>').join('');
  function lines() {
   return [...form.querySelectorAll('fieldset')].map(row=>{
    const value = key=>row.querySelector(`[data-field="${key}"]`).value;
    const quantity=number(value('quantity')), price=number(value('price')), discount=number(value('discount'));
-   return {name:value('name').trim(),quantity,unit:value('unit'),price,discount,size:number(value('size'))||undefined,packUnit:value('packUnit'),total:Math.round((quantity*price-discount)*100)/100,sourceName:row.dataset.source,requestId:value('request'),originalPrice:price===Number(row.dataset.importPrice)&&row.dataset.originalPrice!==undefined?Number(row.dataset.originalPrice):price};
+   return {name:value('name').trim(),quantity,unit:value('unit'),price,discount,size:number(value('size'))||undefined,packUnit:value('packUnit'),total:Math.round((quantity*price-discount)*100)/100,sourceName:row.dataset.source,requestId:value('request'),receiptOrder:Number(row.dataset.order),originalPrice:price===Number(row.dataset.importPrice)&&row.dataset.originalPrice!==undefined?Number(row.dataset.originalPrice):price};
   });
  }
  function totals(){
   const entries=lines(),suggestions=suggestRequestLinks(entries,requests,aliases);
   const allocated=new Map();
+  let remainingReview=0;
   if(requests.length)[...form.querySelectorAll('fieldset')].forEach((row,index)=>{
    const select=row.querySelector('[data-field=request]');
    if(!row.dataset.manualLink)select.value=suggestions[index]||'';
    const request=requests.find(item=>item.id===select.value);
+   row.toggleAttribute('data-review-needed',!request);
+   if(!request)remainingReview++;
    const quantity=request?requestedQuantity(entries[index],request):null;
    const prior=allocated.get(request?.id)||0;
    const applied=request&&quantity!==null?Math.max(0,Math.min(quantity,request.quantity-prior)):0;
@@ -791,12 +823,15 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
     (row.dataset.manualLink?'':'Vínculo sugerido · ')+'Baixa de '+applied.toLocaleString('pt-BR')+' '+(request.unit||'un'):
     '';
   });
+  review.hidden=remainingReview===0;
+  review.querySelector('span').textContent=remainingReview+' sem vínculo. Confira se são compras fora da lista.';
   const total=entries.reduce((sum,line)=>sum+line.total,0)-number(form.elements.receiptDiscount.value), expected=form.elements.expected.value;
   $('#receipt-total').textContent=`Soma das linhas: ${money(total)}${expected!=='' && Math.abs(number(expected)-total)>=.01 ? ' · Divergência de '+money(Math.abs(number(expected)-total)) : ''}`;
  }
- function add(line={}) {
+ function add(line={},order=nextOrder++) {
   const row=document.createElement('fieldset');
   row.dataset.source=line.sourceName||line.name||'';
+  row.dataset.order=order;
   if(line.originalPrice!=null){row.dataset.originalPrice=line.originalPrice;row.dataset.importPrice=line.price;}
   row.innerHTML=`<label>Produto<input data-field="name" list="receipt-products" value="${esc(line.name)}" required maxlength="120">${line.sourceName?`<small class="receipt-source">No cupom: ${esc(line.sourceName)}</small>`:''}</label><div class="form-row"><label>Quantidade<input data-field="quantity" type="number" min=".001" step=".001" value="${line.quantity??1}" required></label><label>Unidade<select data-field="unit">${units(line.unit)}</select></label><label>Preço unitário<input data-field="price" type="number" min="0" step="any" value="${line.price??''}" required></label><label>Desconto<input data-field="discount" type="number" min="0" step=".01" value="${line.discount??0}" required></label></div><div class="form-row receipt-package"><label>Tamanho da embalagem<input data-field="size" type="number" min=".001" step="any" placeholder="Ex.: 100" value="${esc(line.size)}"></label><label>Unidade da embalagem<select data-field="packUnit">${units(line.packUnit||'un')}</select></label></div>${requests.length?`<label class="receipt-request">Vincular a pedido da lista<select data-field="request"><option value="">Sem vínculo</option>${linkOptions}</select><small class="receipt-link-status"></small></label>`:'<input type="hidden" data-field="request">'}<button class="danger-text" type="button">Remover linha</button>`;
   enhanceMoneyFields(row);
@@ -805,9 +840,9 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
   $('#receipt-lines').append(row);
   totals();
  }
- for(const line of draft.lines) {
-  add(line);
- }
+ const initialLinks=suggestRequestLinks(draft.lines,requests,aliases);
+ draft.lines.map((line,index)=>({line,index,linked:Boolean(initialLinks[index])}))
+  .sort((a,b)=>Number(a.linked)-Number(b.linked)).forEach(({line,index})=>add(line,index));
  form.oninput=totals;
  $('#add-line').onclick=()=>add();
  totals();
@@ -830,7 +865,7 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
  }
  form.onsubmit=event=>{
   event.preventDefault();
-  const entries=lines(),market=form.elements.market.value.trim(),date=form.elements.date.value;
+  const entries=lines().sort((a,b)=>a.receiptOrder-b.receiptOrder),market=form.elements.market.value.trim(),date=form.elements.date.value;
   const status=$('#receipt-status');
   if(!market||!entries.length||entries.some(line=>!line.name||line.total<0)){status.textContent='Confira o mercado, os produtos e os descontos.';return;}
   const fingerprint=receiptFingerprint(entries.map(line=>({...line,name:line.sourceName||line.name,price:line.total})),marketSource||market,date)+(number(form.elements.receiptDiscount.value)?'|desconto:'+form.elements.receiptDiscount.value:'');
@@ -863,11 +898,15 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
    const product=records('product').find(row=>normalize(row.name)===normalize(line.name))||records('product').find(row=>normalize(row.name)===normalize(line.sourceName));
    const item=pending.find(row=>row.id===line.requestId);
    delete line.requestId;
+   delete line.receiptOrder;
    const sector=product?.sector||item?.sector||suggestSector(line.name,sectors());
    line.productId=put('product',{...product,name:line.name,unit:line.unit,sector,...(line.size?{size:line.size,packUnit:line.packUnit}:{}),lastPrice:line.total/line.quantity});
    line.sector=sector;
    line.price=line.total/line.quantity;
-   if(item)item.receiptQuantity=(item.receiptQuantity||0)+requestedQuantity(line,item);
+   if(item){
+    item.receiptQuantity=(item.receiptQuantity||0)+requestedQuantity(line,item);
+    if(normalize(item.name)!==normalize(line.name))rememberName(requestSearchKey(item.name,line.name),line.name);
+   }
    if(line.sourceName&&line.name!==line.sourceName)rememberName(normalize(line.sourceName),line.name);
   }
   put('purchase',{market,marketSource:marketSource||market,date,createdAt:Date.now(),lines:entries,total:Math.round(entries.reduce((sum,line)=>sum+line.total,0)*100)/100,fingerprint,receiptKey:draft.key});
