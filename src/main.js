@@ -100,6 +100,31 @@ function resolveCatalogProduct(name){
  return catalog.find(product=>normalize(product.name)===normalize(alias?.name||name))||
   catalog.find(product=>normalize(product.name)===key);
 }
+function changeSelectedSector(){
+ const selected=records('product').filter(product=>catalogSelected.has(product.id));
+ if(!selected.length)return;
+ showModal('Alterar setor',`<form id="catalog-sector-form"><label>Setor para ${selected.length} produto(s)<select name="sector">${sectorOptions(selected[0].sector||'Sem setor')}</select></label><button class="primary">Aplicar setor</button></form>`);
+ $('#catalog-sector-form').onsubmit=event=>{
+  event.preventDefault();
+  const sector=new FormData(event.currentTarget).get('sector');
+  if(!sectors().includes(sector))return toast('Esse setor não está mais disponível.');
+  const selectedIds=new Set(selected.map(product=>product.id));
+  batch(()=>{
+   for(const product of records('product')){
+    if(selectedIds.has(product.id)&&product.sector!==sector)put('product',{...product,sector});
+   }
+   for(const item of records('item')){
+    if(selectedIds.has(item.productId)&&item.sector!==sector)put('item',{...item,sector});
+   }
+  });
+  catalogSelecting=false;
+  catalogSelected.clear();
+  closeModal();
+  app();
+  toast('Setor atualizado para os produtos selecionados.');
+ };
+}
+
 function mergeCatalogProducts(){
  const selected=records('product').filter(product=>catalogSelected.has(product.id));
  if(selected.length<2)return;
@@ -144,7 +169,7 @@ function renderProducts(){
  const catalog=records('product'),prices=priceEntries();
  const products=catalog.filter(product=>normalize(product.name+' '+product.sector).includes(normalize(search)))
   .sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
- return `<div class="panel"><div class="panel-toolbar"><h2>Seu catálogo <span class="badge">${catalog.length}</span></h2><label class="search">${icon('search')}<input id="search" type="text" inputmode="search" role="searchbox" value="${esc(search)}" placeholder="Buscar produto" aria-label="Buscar produto"></label></div>${catalogSelecting?`<div class="catalog-selection"><span>${catalogSelected.size} selecionado(s)</span><button class="primary" data-action="catalog-merge" ${catalogSelected.size<2?'disabled':''}>Unificar produtos</button></div>`:''}${products.length?`<ul class="catalog-list">${products.map(product=>{const latest=latestCatalogPrice(product,prices);return `<li class="catalog-row ${catalogSelecting?'catalog-selecting':''}">${catalogSelecting?`<input type="checkbox" data-catalog-choice="${product.id}" aria-label="Selecionar ${esc(product.name)}" ${catalogSelected.has(product.id)?'checked':''}>`:`<span class="catalog-icon" aria-hidden="true">${icon(sectorIcon(product.sector))}</span>`}<div class="catalog-name"><strong>${esc(product.name)}</strong><small>${esc(product.sector||'Sem setor')}</small></div><div class="catalog-price"><strong>${priceLabel(latest?.price??product.lastPrice)}</strong>${latest?`<small>${discountPerUnit(latest)>0?'Desconto '+money(discountPerUnit(latest)):'Sem desconto'}</small>${priceLabel(originalPrice(latest))!==priceLabel(latest.price)?`<small>Original ${priceLabel(originalPrice(latest))}</small>`:''}<small>${esc(latest.market)}</small>`:''}</div>${catalogSelecting?'':`<form class="catalog-add" data-catalog-add="${product.id}"><div class="catalog-quantity"><button type="button" class="icon-btn" data-qty="-1" aria-label="Diminuir quantidade de ${esc(product.name)}">${icon('minus')}</button><input name="quantity" type="number" min=".001" max="100000" step="any" inputmode="decimal" required value="${esc(catalogDrafts.get(product.id)?.quantity??1)}" aria-label="Quantidade de ${esc(product.name)}"><button type="button" class="icon-btn" data-qty="1" aria-label="Aumentar quantidade de ${esc(product.name)}">${icon('plus')}</button></div><input name="note" class="catalog-note" value="${esc(catalogDrafts.get(product.id)?.note)}" placeholder="Observação" maxlength="300" aria-label="Observação para ${esc(product.name)}"><button class="primary catalog-submit" type="submit" aria-label="Adicionar ${esc(product.name)} à lista">${icon('plus')}<span>À lista</span></button></form><button class="icon-btn catalog-edit" data-product-edit="${product.id}" aria-label="Editar ${esc(product.name)}" title="Editar produto">${icon('pencil')}</button>`}</li>`;}).join('')}</ul>`:catalog.length?empty('Nenhum produto encontrado','Tente buscar por outro nome ou setor.'):empty('Seu catálogo está vazio','Adicione um produto para reutilizá-lo nas próximas compras.',button('Cadastrar produto','product','plus'))}</div>`;
+ return `<div class="panel"><div class="panel-toolbar"><h2>Seu catálogo <span class="badge">${catalog.length}</span></h2><label class="search">${icon('search')}<input id="search" type="text" inputmode="search" role="searchbox" value="${esc(search)}" placeholder="Buscar produto" aria-label="Buscar produto"></label></div>${catalogSelecting?`<div class="catalog-selection"><span>${catalogSelected.size} selecionado(s)</span><div class="catalog-selection-actions"><button class="secondary" data-action="catalog-sector" ${catalogSelected.size===0?'disabled':''}>Alterar setor</button><button class="primary" data-action="catalog-merge" ${catalogSelected.size<2?'disabled':''}>Unificar produtos</button></div></div>`:''}${products.length?`<ul class="catalog-list">${products.map(product=>{const latest=latestCatalogPrice(product,prices);return `<li class="catalog-row ${catalogSelecting?'catalog-selecting':''}">${catalogSelecting?`<input type="checkbox" data-catalog-choice="${product.id}" aria-label="Selecionar ${esc(product.name)}" ${catalogSelected.has(product.id)?'checked':''}>`:`<span class="catalog-icon" aria-hidden="true">${icon(sectorIcon(product.sector))}</span>`}<div class="catalog-name"><strong>${esc(product.name)}</strong><small>${esc(product.sector||'Sem setor')}</small></div><div class="catalog-price"><strong>${priceLabel(latest?.price??product.lastPrice)}</strong>${latest?`<small>${discountPerUnit(latest)>0?'Desconto '+money(discountPerUnit(latest)):'Sem desconto'}</small>${priceLabel(originalPrice(latest))!==priceLabel(latest.price)?`<small>Original ${priceLabel(originalPrice(latest))}</small>`:''}<small>${esc(latest.market)}</small>`:''}</div>${catalogSelecting?'':`<form class="catalog-add" data-catalog-add="${product.id}"><div class="catalog-quantity"><button type="button" class="icon-btn" data-qty="-1" aria-label="Diminuir quantidade de ${esc(product.name)}">${icon('minus')}</button><input name="quantity" type="number" min=".001" max="100000" step="any" inputmode="decimal" required value="${esc(catalogDrafts.get(product.id)?.quantity??1)}" aria-label="Quantidade de ${esc(product.name)}"><button type="button" class="icon-btn" data-qty="1" aria-label="Aumentar quantidade de ${esc(product.name)}">${icon('plus')}</button></div><input name="note" class="catalog-note" value="${esc(catalogDrafts.get(product.id)?.note)}" placeholder="Observação" maxlength="300" aria-label="Observação para ${esc(product.name)}"><button class="primary catalog-submit" type="submit" aria-label="Adicionar ${esc(product.name)} à lista">${icon('plus')}<span>À lista</span></button></form><button class="icon-btn catalog-edit" data-product-edit="${product.id}" aria-label="Editar ${esc(product.name)}" title="Editar produto">${icon('pencil')}</button>`}</li>`;}).join('')}</ul>`:catalog.length?empty('Nenhum produto encontrado','Tente buscar por outro nome ou setor.'):empty('Seu catálogo está vazio','Adicione um produto para reutilizá-lo nas próximas compras.',button('Cadastrar produto','product','plus'))}</div>`;
 }
 function renderHistory(){const purchases=records('purchase').sort((a,b)=>b.date.localeCompare(a.date));return `<div class="panel"><div class="panel-toolbar"><h2>Compras finalizadas <span class="badge">${purchases.length}</span></h2><span class="muted">Total registrado: ${money(purchases.reduce((s,p)=>s+p.total,0))}</span></div>${purchases.length?purchases.map(p=>`<button class="purchase-row" data-purchase="${p.id}"><span class="purchase-icon">${icon('store')}</span><span class="purchase-info"><strong>${esc(p.market)}</strong><small>${dateLabel(p.date)} · ${p.lines.length} produtos</small></span><strong>${money(p.total)}</strong>${icon('chevron-right')}</button>`).join(''):empty('Cada compra tem sua história','Finalize uma compra ou importe um cupom para começar seu histórico.',button('Ler cupom','receipt','scan-line'))}</div>`;}
 function priceEntries(){return purchasePrices(records('purchase'));}
@@ -287,6 +312,7 @@ function bind(){
    const status=$('.catalog-selection span'),merge=$('[data-action="catalog-merge"]');
    status.textContent=catalogSelected.size+' selecionado(s)';
    merge.disabled=catalogSelected.size<2;
+   $('[data-action="catalog-sector"]').disabled=catalogSelected.size===0;
   };
  }
  document.querySelectorAll('[data-product-edit]').forEach(el=>el.onclick=()=>productDialog(get(el.dataset.productEdit)));
@@ -304,7 +330,7 @@ function bind(){
  document.querySelectorAll('[data-sector-remove]').forEach(el=>el.onclick=()=>{const name=sectors()[+el.dataset.sectorRemove];if(name==='Sem setor')return toast('O setor padrão precisa permanecer.');confirmDialog('Remover setor?',`Os produtos de “${name}” passam para Sem setor.`,()=>{for(const kind of ['item','product'])for(const r of records(kind).filter(r=>r.sector===name))put(kind,{...r,sector:'Sem setor'});setSectors(sectors().filter(s=>s!==name));});});
  $('#backup-file')?.addEventListener('change',restoreBackup);
 }
-const actions={'catalog-select':selectCatalogMode,'catalog-merge':mergeCatalogProducts,shopping:()=>{state.shopping=!state.shopping;if(state.shopping)state.lastSeen=Date.now();persist();app();},add:()=>itemDialog(),product:()=>productDialog(),receipt:()=>receiptDialog(),finish:()=>finishDialog(),account:()=>accountDialog(),house:()=>houseDialog(),sync:()=>{if(state.household){void sync();toast('Tentando sincronizar…');}else toast('Lista salva neste aparelho. Entre na sua conta para compartilhar.');},sector:()=>sectorDialog(),install:()=>install(),export:()=>exportBackup(),conflicts:()=>conflictDialog()};
+const actions={'catalog-select':selectCatalogMode,'catalog-merge':mergeCatalogProducts,'catalog-sector':changeSelectedSector,shopping:()=>{state.shopping=!state.shopping;if(state.shopping)state.lastSeen=Date.now();persist();app();},add:()=>itemDialog(),product:()=>productDialog(),receipt:()=>receiptDialog(),finish:()=>finishDialog(),account:()=>accountDialog(),house:()=>houseDialog(),sync:()=>{if(state.household){void sync();toast('Tentando sincronizar…');}else toast('Lista salva neste aparelho. Entre na sua conta para compartilhar.');},sector:()=>sectorDialog(),install:()=>install(),export:()=>exportBackup(),conflicts:()=>conflictDialog()};
 function bindCatalogForms(){
  document.querySelectorAll('[data-catalog-add]').forEach(form=>{
   const id=form.dataset.catalogAdd;

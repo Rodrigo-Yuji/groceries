@@ -270,3 +270,6 @@ fieldset{border:1px solid var(--border);border-radius:10px;min-width:0}
  .comparison-form{grid-template-columns:1fr;gap:8px}
  .comparison-form .form-row{grid-template-columns:1fr 1fr}
 }
+.catalog-selection{flex-wrap:wrap}
+.catalog-selection-actions{display:flex;gap:6px;flex-wrap:wrap}
+@media(max-width:480px){.catalog-selection-actions button{padding-inline:9px;font-size:.85rem}}
