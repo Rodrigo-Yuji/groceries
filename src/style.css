@@ -196,3 +196,10 @@ fieldset{border:1px solid var(--border);border-radius:10px;min-width:0}
 .market-comparison li small{display:block;color:var(--muted)}
 .market-comparison li>strong{white-space:nowrap}
 .compare-markets{padding-inline:5px}
+
+.history-line{display:grid;grid-template-columns:20px minmax(0,1fr) max-content 44px;align-items:center;column-gap:10px;padding:7px 0}
+.history-line>input{justify-self:center;margin:0}
+.history-line>span{min-width:0;overflow-wrap:anywhere}
+.history-line>strong{min-width:7ch;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.history-line .icon-btn{width:44px;padding:0}
+@media(max-width:480px){.history-line{grid-template-columns:18px minmax(0,1fr) max-content 38px;column-gap:6px}.history-line .icon-btn{width:38px}.history-line>strong{font-size:.85rem}}
