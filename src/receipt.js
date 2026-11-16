@@ -9,9 +9,9 @@ export function readXML(text){
  const doc=new DOMParser().parseFromString(text,'application/xml');
  if(doc.querySelector('parsererror'))throw Error('O arquivo XML é inválido.');
  const val=(node,key)=>node.getElementsByTagName(key)[0]?.textContent||'';
- const lines=[...doc.getElementsByTagName('det')].map(det=>{const p=det.getElementsByTagName('prod')[0];if(!p)return null;const quantity=number(val(p,'qCom'));const discount=number(val(p,'vDesc'));const total=number(val(p,'vProd'))-discount;return {name:val(p,'xProd'),quantity,price:quantity?total/quantity:0,unit:val(p,'uCom').toLowerCase()==='kg'?'kg':'un',size:1,packUnit:'un'};}).filter(x=>x?.name&&x.quantity>0);
+ const lines=[...doc.getElementsByTagName('det')].map(det=>{const p=det.getElementsByTagName('prod')[0];if(!p)return null;const quantity=number(val(p,'qCom'));const discount=number(val(p,'vDesc'));const gross=number(val(p,'vProd'));return {name:val(p,'xProd'),quantity,price:quantity?gross/quantity:0,discount, unit:fiscalUnit(val(p,'uCom'))};}).filter(x=>x?.name&&x.quantity>0);
  if(!lines.length)throw Error('Nenhum produto encontrado. Envie o XML completo da NFC-e/NF-e.');
- const emit=doc.getElementsByTagName('emit')[0];return {lines,market:emit?(val(emit,'xFant')||val(emit,'xNome')):'',date:val(doc,'dhEmi').slice(0,10),text};
+ const emit=doc.getElementsByTagName('emit')[0];return {lines,market:emit?(val(emit,'xFant')||val(emit,'xNome')):'',date:(val(doc,'dhEmi')||val(doc,'dEmi')).slice(0,10),expected:val(doc,'vNF'),key:doc.querySelector('infNFe')?.getAttribute('Id')?.match(/\d{44}/)?.[0]};
 }
 export async function readQR(file){
  const img=await createImageBitmap(file);
@@ -20,3 +20,34 @@ export async function readQR(file){
  }finally{img.close();}
 }
 export function validateFiscalURL(value){let u;try{u=new URL(value);}catch{throw Error('O QR Code não contém um endereço válido.');}if(u.protocol!=='https:'||!/(^|\.)[a-z0-9-]+\.gov\.br$/i.test(u.hostname)||u.username||u.password||u.port)throw Error('Use um QR Code de nota fiscal com endereço HTTPS de um portal governamental brasileiro.');return u.href;}
+
+function fiscalUnit(value){
+ const unit=value.toLowerCase().trim();
+ return ({kg:'kg',g:'g',l:'L',ml:'ml',pc:'pacote',pct:'pacote',cx:'caixa'})[unit]||'un';
+}
+export function readPortalHTML(html){
+ const document=new DOMParser().parseFromString(html,'text/html');
+ const lines=[...document.querySelectorAll('#tabResult tr')].flatMap(row=>{
+  const field=selector=>row.querySelector(selector)?.textContent.trim()||'';
+  const name=field('.txtTit');
+  const numeric=selector=>{
+   const value=field(selector).match(/[\d.]+,\d+|\d+/)?.[0];
+   return value?number(value.replace(/\.(?=\d{3}\b)/g,'')):NaN;
+  };
+  const quantity=numeric('.Rqtd'), price=numeric('.RvlUnit'), total=numeric('.valor');
+  if(!name||!(quantity>0)||!(price>=0))return [];
+  return [{name,quantity,price,unit:fiscalUnit(field('.RUN').split(':').pop()),discount:Number.isFinite(total)?Math.max(0,Math.round((quantity*price-total)*100)/100):0}];
+ });
+ if(!lines.length)throw Error('Nenhuma linha fiscal compatível encontrada no HTML salvo.');
+ const key=document.querySelector('.chave')?.textContent.replace(/\D/g,'');
+ const formatted=document.body.textContent.match(/(?:Emissão|Emiss[aã]o)\s*:?\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+ const total=[...document.querySelectorAll('#linhaTotal')].find(row=>/valor a pagar|valor total/i.test(row.textContent))?.querySelector('.totalNumb')?.textContent;
+ return {lines,market:document.querySelector('#u20')?.textContent.trim()||'',date:formatted?[formatted[3],formatted[2],formatted[1]].join('-'):'',expected:total?.replace(/[^\d,]/g,'').replace(',','.'),key:key?.length===44?key:undefined};
+}
+export async function importFiscalURL(url){
+ const validated=validateFiscalURL(url);
+ const response=await fetch(validated,{mode:'cors',credentials:'omit',redirect:'error',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(7000)});
+ if(!response.ok)throw Error('O portal não retornou o cupom.');
+ const body=await response.text();
+ return response.headers.get('content-type')?.includes('xml')?readXML(body):readPortalHTML(body);
+}

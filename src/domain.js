@@ -9,18 +9,18 @@ export function suggestSector(name) {
 }
 export function purchaseItem(item,qty,price) {
  if(!Number.isFinite(qty)||qty<=0||qty>item.quantity) throw Error('Informe uma quantidade entre zero e a quantidade pedida.');
- if(!Number.isFinite(price)||price<0) throw Error('Informe um preço válido.');
- return {...item,bought:qty,price};
+ if(price!==null&&(!Number.isFinite(price)||price<0)) throw Error('Informe um preço válido.');
+ return {...item,bought:qty,paidPrice:price};
 }
 export function finishPurchase(items,market,date) {
  const bought=items.filter(i=>i.bought>0);
  if(!bought.length) throw Error('Marque pelo menos um produto comprado.');
- const lines=bought.map(i=>({...i,quantity:i.bought,total:Math.round(i.bought*i.price*100)/100}));
- const remaining=items.flatMap(i=>i.quantity>i.bought?[{...i,quantity:Math.round((i.quantity-i.bought)*1000)/1000,bought:0}]:[]);
+ const lines=bought.map(i=>{const price=Object.hasOwn(i,'paidPrice')?i.paidPrice:i.price;return {...i,price,quantity:i.bought,total:price==null?null:Math.round(i.bought*price*100)/100};});
+ const remaining=items.flatMap(i=>{if(!i.bought)return [i];const {paidPrice,...rest}=i;return i.quantity>i.bought?[{...rest,quantity:Math.round((i.quantity-i.bought)*1000)/1000,bought:0}]:[];});
  return {purchase:{market:market.trim()||'Mercado não informado',date,lines,total:lines.reduce((s,i)=>s+i.total,0)},remaining};
 }
 export function unitPrice(price,size,unit) {
- if(!(size>0)||!(price>=0))return null;
+ if(!(size>0)||price==null||!(price>=0))return null;
  const divisor=['g','ml'].includes(unit)?size/1000:size;
  return {value:price/divisor,unit:['g','kg'].includes(unit)?'kg':['ml','L'].includes(unit)?'L':'un'};
 }
