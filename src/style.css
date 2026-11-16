@@ -203,3 +203,5 @@ fieldset{border:1px solid var(--border);border-radius:10px;min-width:0}
 .history-line>strong{min-width:7ch;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .history-line .icon-btn{width:44px;padding:0}
 @media(max-width:480px){.history-line{grid-template-columns:18px minmax(0,1fr) max-content 38px;column-gap:6px}.history-line .icon-btn{width:38px}.history-line>strong{font-size:.85rem}}
+.receipt-source{display:block;color:var(--muted);font-size:.82rem;overflow-wrap:anywhere}
+.receipt-package{margin-top:8px}

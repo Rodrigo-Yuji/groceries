@@ -1,5 +1,5 @@
 import './style.css';
-import {purchasePrices,latestCatalogPrice,discountPerUnit,priceSeries,sectorChanges,latestByMarket,matchingPriceSeries} from './price-analysis.js';
+import {purchasePrices,latestCatalogPrice,discountPerUnit,priceSeries,sectorChanges,latestByMarket,matchingPriceSeries,hasPackageSize} from './price-analysis.js';
 import {suggestReceiptNames,marketName,marketAliasKey,originalMarket} from './receipt-names.js';
 import {appURL,invitationURL,pendingInvitation,clearInvitation,authMessage,changePassword} from './account.js';
 import {createIcons,icons} from 'lucide';
@@ -56,14 +56,14 @@ let priceHistoryOpen=false;
 const percent=value=>new Intl.NumberFormat('pt-BR',{style:'percent',maximumFractionDigits:1,signDisplay:'exceptZero'}).format(value/100);
 const trendClass=value=>value>0?'trend-up':value<0?'trend-down':'muted';
 function presentationOf(line){
- return [line.presentation,line.size>1?line.size+' '+(line.packUnit||'un'):''].filter(Boolean).join(' · ');
+ return [line.presentation,hasPackageSize(line)?line.size+' '+(line.packUnit||'un'):''].filter(Boolean).join(' · ');
 }
 function renderPrices(){
  const lines=priceEntries().filter(line=>normalize(line.name+' '+line.market).includes(normalize(search)));
  const series=priceSeries(lines,records('product'),sectors());
  const changes=sectorChanges(series,sectors());
  return `<section class="panel price-analysis"><div class="panel-toolbar"><h2>Análise de preços</h2><label class="search">${icon('search')}<input id="search" type="text" inputmode="search" role="searchbox" value="${esc(search)}" placeholder="Produto ou mercado" aria-label="Buscar preços"></label></div><p class="price-explainer">A variação compara a primeira e a última compra de cada apresentação dentro dos resultados. Se houver preços diferentes no mesmo cupom, o gráfico usa a média.</p>${series.length?`<div class="price-overview"><span><strong>${series.length}</strong> apresentações</span><span><strong>${series.filter(item=>item.change>0).length}</strong> subiram</span><span><strong>${series.filter(item=>item.change<0).length}</strong> caíram</span><button class="secondary" id="sector-chart" ${changes.length?'':'disabled'}>${icon('chart-bar')}Gráfico por setor</button></div><div class="table-scroll price-analysis-scroll"><table><thead><tr><th>Produto</th><th>Último preço pago</th><th>Variação</th><th>Melhor mercado</th><th>Gráfico</th></tr></thead><tbody>${series.map((item,index)=>{const markets=latestByMarket(item),best=markets[0];return `<tr><td><strong>${esc(item.name)}</strong><small>${esc([presentationOf(item),item.sector].filter(Boolean).join(' · '))}</small></td><td>${priceLabel(item.latest.price)} / ${esc(item.unit)}<small>${esc(item.latest.market)} · ${dateLabel(item.latest.date)}</small></td><td>${item.change==null?'<span class="muted">Sem comparação</span>':`<strong class="${trendClass(item.change)}">${percent(item.change)}</strong><small>Desde ${dateLabel(item.first.date)}</small>`}</td><td><button class="text-btn best-market" data-market-compare="${index}">${esc(best.market)}<small>${money(best.price)}${markets.length===1?' · 1 mercado':''}</small></button></td><td><button class="icon-btn" data-price-chart="${index}" aria-label="Ver gráfico de ${esc(item.name)}" title="Ver gráfico">${icon('chart-no-axes-combined')}</button></td></tr>`;}).join('')}</tbody></table></div>`:empty('Nenhum preço para analisar','Registre uma compra com preços ou ajuste a busca.')}</section><details class="panel price-history" ${priceHistoryOpen?'open':''}><summary>Histórico de preços <span>${lines.length} registros</span></summary>${lines.length?`<div class="table-scroll price-history-scroll"><table><thead><tr><th>Produto</th><th>Mercado</th><th>Data</th><th>Original</th><th>Pago</th><th>Preço base</th></tr></thead><tbody>${lines.map(line=>{
-  const base=unitPrice(line.price,line.size>1?line.size:1,line.size>1?(line.packUnit||'un'):(line.unit||'un'));
+  const base=hasPackageSize(line)?unitPrice(line.price,line.size,line.packUnit||'un'):unitPrice(line.price,1,line.unit||'un');
   return `<tr><td><strong>${esc(line.name)}</strong><small>${esc(presentationOf(line))}</small></td><td>${esc(line.market)}</td><td>${dateLabel(line.date)}</td><td>${priceLabel(originalPrice(line))}</td><td>${priceLabel(line.price)}${line.allocatedDiscount>0?'<small>Desconto geral rateado</small>':''}</td><td>${base?money(base.value)+' / '+base.unit:'—'}</td></tr>`;
  }).join('')}</tbody></table></div>`:empty('Nenhum preço registrado','Os preços aparecem aqui depois de finalizar compras com valores informados.')}</details>`;
 }
@@ -456,7 +456,7 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
   return [...form.querySelectorAll('fieldset')].map(row=>{
    const value = key=>row.querySelector(`[data-field="${key}"]`).value;
    const quantity=number(value('quantity')), price=number(value('price')), discount=number(value('discount'));
-   return {name:value('name').trim(),quantity,unit:value('unit'),price,discount,total:Math.round((quantity*price-discount)*100)/100,sourceName:row.dataset.source,originalPrice:price===Number(row.dataset.importPrice)&&row.dataset.originalPrice!==undefined?Number(row.dataset.originalPrice):price};
+   return {name:value('name').trim(),quantity,unit:value('unit'),price,discount,size:number(value('size'))||undefined,packUnit:value('packUnit'),total:Math.round((quantity*price-discount)*100)/100,sourceName:row.dataset.source,originalPrice:price===Number(row.dataset.importPrice)&&row.dataset.originalPrice!==undefined?Number(row.dataset.originalPrice):price};
   });
  }
  function totals() {
@@ -467,7 +467,7 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
   const row=document.createElement('fieldset');
   row.dataset.source=line.sourceName||line.name||'';
   if(line.originalPrice!=null){row.dataset.originalPrice=line.originalPrice;row.dataset.importPrice=line.price;}
-  row.innerHTML=`<label>Produto<input data-field="name" list="receipt-products" value="${esc(line.name)}" required maxlength="120"></label><div class="form-row"><label>Quantidade<input data-field="quantity" type="number" min=".001" step=".001" value="${line.quantity??1}" required></label><label>Unidade<select data-field="unit">${units(line.unit)}</select></label><label>Preço unitário<input data-field="price" type="number" min="0" step="any" value="${line.price??''}" required></label><label>Desconto<input data-field="discount" type="number" min="0" step=".01" value="${line.discount??0}" required></label></div><button class="danger-text" type="button">Remover linha</button>`;
+  row.innerHTML=`<label>Produto<input data-field="name" list="receipt-products" value="${esc(line.name)}" required maxlength="120">${line.sourceName?`<small class="receipt-source">No cupom: ${esc(line.sourceName)}</small>`:''}</label><div class="form-row"><label>Quantidade<input data-field="quantity" type="number" min=".001" step=".001" value="${line.quantity??1}" required></label><label>Unidade<select data-field="unit">${units(line.unit)}</select></label><label>Preço unitário<input data-field="price" type="number" min="0" step="any" value="${line.price??''}" required></label><label>Desconto<input data-field="discount" type="number" min="0" step=".01" value="${line.discount??0}" required></label></div><div class="form-row receipt-package"><label>Tamanho da embalagem<input data-field="size" type="number" min=".001" step="any" placeholder="Ex.: 100" value="${esc(line.size)}"></label><label>Unidade da embalagem<select data-field="packUnit">${units(line.packUnit||'un')}</select></label></div><button class="danger-text" type="button">Remover linha</button>`;
   row.querySelector('button').onclick=()=>{row.remove();totals();};
   $('#receipt-lines').append(row);
   totals();
@@ -525,7 +525,7 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
    const product=records('product').find(row=>normalize(row.name)===normalize(line.name))||records('product').find(row=>normalize(row.name)===normalize(line.sourceName));
    const item=pending.find(row=>row.unit===line.unit&&(normalize(row.name)===normalize(line.name)||normalize(row.name)===normalize(line.sourceName)));
    const sector=product?.sector||item?.sector||suggestSector(line.name,sectors());
-   line.productId=put('product',{...product,name:line.name,unit:line.unit,sector,lastPrice:line.total/line.quantity});
+   line.productId=put('product',{...product,name:line.name,unit:line.unit,sector,...(line.size?{size:line.size,packUnit:line.packUnit}:{}),lastPrice:line.total/line.quantity});
    line.sector=sector;
    line.price=line.total/line.quantity;
    if(item)item.receiptQuantity=(item.receiptQuantity||0)+line.quantity;

@@ -62,3 +62,27 @@ test('interpreta descrições da nova nota e mantém as abreviações ambíguas'
  assert.equal(name('ACEM S/O BOV FC kg'),'Acém bovino sem osso');
  assert.equal(name('M PIM MEND 215ML DEF'),'M PIM MEND 215ML DEF');
 });
+
+test('preserva gramatura do cupom ou do código de barras e aceita medidas decimais',async()=>{
+ const result=await suggestReceiptNames([
+  {name:'Doritos Sabor Queijo Nacho 90G'},
+  {name:'DOR NACHO',barcode:'3017620422003'},
+  {name:'PATINHO BOV FC kg'},
+  {name:'ACH TOD SACH 1,02kg'},
+  {name:'LT INT COMPLEITE 1LT'},
+  {name:'FILTRO 3 COR 102 30U'},
+  {name:'COND OX 400ML NUT IN'},
+  {name:'SH OX 400ML NUTR INT'}
+ ],[],[],[],async()=>({ok:true,json:async()=>({product:{code:'3017620422003',product_name_pt:'Doritos Sabor Queijo Nacho',product_quantity:100,product_quantity_unit:'g'}})}));
+ assert.deepEqual(result.map(line=>[line.name,line.size,line.packUnit]),[
+  ['Doritos Sabor Queijo Nacho 90G',90,'g'],
+  ['Doritos Sabor Queijo Nacho 100 g',100,'g'],
+  ['Patinho bovino',undefined,undefined],
+  ['Achocolatado em pó - Toddy, sachê 1,02 kg',1.02,'kg'],
+  ['Leite integral - Compleite 1 L',1,'L'],
+  ['Filtro de café nº 102 - 3 Corações, 30 un',undefined,undefined],
+  ['Condicionador Nutrição Intensa - OX 400 mL',400,'ml'],
+  ['Shampoo Nutrição Intensa - OX 400 mL',400,'ml']
+ ]);
+ assert.equal(result[3].sourceName,'ACH TOD SACH 1,02kg');
+});

@@ -6,11 +6,13 @@ export function purchasePrices(purchases){
  }))).sort((a,b)=>b.date.localeCompare(a.date)||b.order-a.order);
 }
 
+export const hasPackageSize=item=>item.size>1||(item.size>0&&['kg','g','L','ml'].includes(item.packUnit));
+
 export function latestCatalogPrice(product,prices){
  return prices.find(line=>line.price!=null&&(
   (product.id&&line.productId===product.id)||normalize(line.name)===normalize(product.name)
  )&&(line.unit||'un')===(product.unit||'un')&&(
-  !(product.size>1)||(line.size===product.size&&(line.packUnit||'un')===(product.packUnit||'un'))
+  !hasPackageSize(product)||(line.size===product.size&&(line.packUnit||'un')===(product.packUnit||'un'))
  ));
 }
 
@@ -64,6 +66,6 @@ export function latestByMarket(series){
 
 export function matchingPriceSeries(item,series){
  return series.filter(group=>normalize(group.name)===normalize(item.name)&&group.unit===(item.unit||'un')&&
-  (!(item.size>1)||(group.size===item.size&&(group.packUnit||'un')===(item.packUnit||'un')))&&
+  (!hasPackageSize(item)||(group.size===item.size&&(group.packUnit||'un')===(item.packUnit||'un')))&&
   (!item.presentation||normalize(group.presentation)===normalize(item.presentation)));
 }

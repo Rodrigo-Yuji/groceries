@@ -14,6 +14,15 @@ export function receiptName(raw,products,aliases,history=[]){
 }
 
 const receiptRules=[
+ [/^ach tod s ach (\d+)[ ,](\d+)\s*kg$/,m=>'Achocolatado em pó - Toddy, sachê '+m[1]+','+m[2]+' kg'],
+ [/^ach tod sach (\d+)[ ,](\d+)\s*kg$/,m=>'Achocolatado em pó - Toddy, sachê '+m[1]+','+m[2]+' kg'],
+ [/^ach tod sach (\d+)\s*g$/,m=>'Achocolatado em pó - Toddy, sachê '+m[1]+'g'],
+ [/^lt int compleite (\d+)\s*lt?$/,m=>'Leite integral - Compleite '+m[1]+' L'],
+ [/^filtro 3 cor (\d+) (\d+)\s*u$/,m=>'Filtro de café nº '+m[1]+' - 3 Corações, '+m[2]+' un'],
+ [/^patinho bov(?: fc)?(?: kg)?$/,'Patinho bovino'],
+ [/^cond ox (\d+)\s*ml nut in(?:t)?$/,m=>'Condicionador Nutrição Intensa - OX '+m[1]+' mL'],
+ [/^sh ox (\d+)\s*ml nutr int$/,m=>'Shampoo Nutrição Intensa - OX '+m[1]+' mL'],
+
  [/^beb monster (\d+)\s*ml tr$/,m=>'Energético Monster tradicional '+m[1]+' mL'],
  [/^beb monster (\d+)\s*ml az$/,m=>'Energético Monster azul '+m[1]+' mL'],
  [/^p forma visc tr (\d+)\s*g$/,m=>'Pão de forma tradicional - Visconti '+m[1]+'g'],
@@ -100,6 +109,22 @@ function validBarcode(value){
  return (10-sum%10)%10===check?code:'';
 }
 
+export function readPackage(text){
+ const matches=[...String(text||'').matchAll(/(?:^|[^\d.,])(\d+(?:[.,]\d+)?)\s*(kg|mg|ml|lt|g|l)\b/gi)];
+ const match=matches.at(-1);
+ if(!match||match[2].toLowerCase()==='mg')return null;
+ const unit=match[2].toLowerCase();
+ const size=Number(match[1].replace(',','.'));
+ return size>0?{size,packUnit:unit==='lt'||unit==='l'?'L':unit}:null;
+}
+function withPackage(line,display,remoteSize){
+ const pack=readPackage(line.sourceName)||readPackage(remoteSize)||readPackage(display);
+ if(!pack)return {...line,name:display};
+ const shown=readPackage(display);
+ const text=pack.size.toLocaleString('pt-BR',{maximumFractionDigits:3})+' '+pack.packUnit;
+ return {...line,...pack,name:shown?display:(display+' '+text).slice(0,120)};
+}
+
 const barcodeNames=new Map();
 export async function suggestReceiptNames(lines,products,aliases,history,fetchProduct=fetch){
  const suggested=lines.map(line=>({...line,sourceName:line.name,name:receiptName(line.name,products,aliases,history)}));
@@ -110,19 +135,21 @@ export async function suggestReceiptNames(lines,products,aliases,history,fetchPr
  await Promise.all(codes.map(async code=>{
   if(barcodeNames.has(code))return;
   try{
-   const url='https://world.openfoodfacts.org/api/v2/product/'+code+'.json?fields=code,product_name_pt,product_name,lang,brands,quantity';
+   const url='https://world.openfoodfacts.org/api/v2/product/'+code+'.json?fields=code,product_name_pt,product_name,lang,brands,quantity,product_quantity,product_quantity_unit';
    const response=await fetchProduct(url,{signal:deadline,credentials:'omit',referrerPolicy:'no-referrer'});
    if(!response.ok)return;
    const {product}=await response.json();
    if(product?.code!==code)return;
    const name=String(product.product_name_pt||(product.lang==='pt'?product.product_name:'')||'').trim();
    if(!name)return;
-   const brand=String(product.brands||'').split(',')[0].trim(),quantity=String(product.quantity||'').trim();
+   const brand=String(product.brands||'').split(',')[0].trim(),quantity=String(product.quantity||(product.product_quantity&&product.product_quantity_unit?product.product_quantity+' '+product.product_quantity_unit:'')).trim();
    const includes=value=>normalize(name).includes(normalize(value));
-   const label=[name,brand&&!includes(brand)?' - '+brand:'',quantity&&!includes(quantity)?' '+quantity:''].join('');
-   if(label.length<=120)barcodeNames.set(code,label);
+   const label=[name,brand&&!includes(brand)?' - '+brand:''].join('');
+   if(label.length<=120)barcodeNames.set(code,{label,quantity});
   }catch{}
  }));
- return suggested.map(line=>candidates.includes(line)&&barcodeNames.has(validBarcode(line.barcode))?
-  {...line,name:barcodeNames.get(validBarcode(line.barcode))}:line);
+ return suggested.map(line=>{
+  const remote=candidates.includes(line)?barcodeNames.get(validBarcode(line.barcode)):null;
+  return withPackage(line,remote?.label||line.name,remote?.quantity);
+ });
 }
