@@ -98,7 +98,7 @@ function renderList(){
  const est=all.reduce((sum,i)=>sum+i.quantity*(i.price||0),0),real=all.reduce((sum,i)=>sum+(i.bought||0)*(i.paidPrice??0),0);
  let shown=all.filter(i=>(filter==='pending'?i.bought<i.quantity:filter==='bought'?i.bought>0:true)&&normalize(i.name+' '+i.note).includes(normalize(search)));
  const groups=[...new Set([...sectors(),...shown.map(i=>i.sector)])];
- return `<div class="stats"><div class="stat"><span class="stat-icon green">${icon('list-checks')}</span><div><span>Na lista</span><strong>${count} <small>${count===1?'produto':'produtos'}</small></strong></div></div><div class="stat"><span class="stat-icon amber">${icon('shopping-cart')}</span><div><span>No carrinho</span><strong>${bought} <small>de ${count} completos</small></strong></div></div><div class="stat"><span class="stat-icon blue">${icon('wallet')}</span><div><span>Total estimado</span><strong>${money(est)}</strong><small class="${all.some(i=>i.price==null)?'':'estimate-complete'}">${all.some(i=>i.price==null)?'Estimativa incompleta':'Com os preços disponíveis'}</small></div></div></div><div class="list-layout"><section class="panel list-panel"><div class="list-toolbar"><div class="tabs">${[['all','Todos',all.length],['pending','Pendentes',all.filter(i=>i.bought<i.quantity).length],['bought','Comprados',all.filter(i=>i.bought>0).length]].map(([key,label,n])=>`<button data-filter="${key}" class="${filter===key?'selected':''}">${label}<span>${n}</span></button>`).join('')}</div><label class="search">${icon('search')}<input id="search" type="text" inputmode="search" role="searchbox" placeholder="Buscar na lista" value="${esc(search)}" aria-label="Buscar na lista"></label></div>${shown.length?groups.filter(s=>shown.some(i=>i.sector===s)).map(s=>`<div class="sector-heading"><span>${icon(sectorIcon(s))}${esc(s)}</span><small>${shown.filter(i=>i.sector===s).length} itens</small></div><div>${shown.filter(i=>i.sector===s).sort((a,b)=>(a.bought>=a.quantity)-(b.bought>=b.quantity)) .map(item=>renderItem(item,matchingPriceSeries(item,comparisons))).join('')}</div>`).join(''):empty(all.length?'Nenhum item por aqui':'Sua próxima compra começa aqui',all.length?'Tente outra busca ou filtro.':'Adicione o que está faltando. Quem mora com você também pode ajudar.',!all.length?button('Adicionar primeiro item','add','plus'):'')}<button class="add-row" data-action="add">${icon('plus')}Adicionar produto à lista</button></section><aside class="right-column"><div class="summary-card"><div class="summary-title">${icon('shopping-bag')}Sua compra</div><div class="progress-label"><span>Lista concluída</span><strong>${count?Math.round(bought/count*100):0}%</strong></div><div class="progress"><div style="width:${count?bought/count*100:0}%"></div></div><div class="summary-row"><span>Já no carrinho</span><strong>${money(real)}</strong></div><div class="summary-row muted"><span>Ainda na lista</span><span>${money(Math.max(0,est-real))}</span></div><div class="summary-total"><span>Total estimado</span><strong>${money(est)}</strong></div><button class="primary full" data-action="finish" ${!all.some(i=>i.bought>0)?'disabled':''}>${icon('check')}Finalizar compra</button><p class="micro">Os itens não comprados continuam na lista para a próxima vez.</p></div><div class="tip-card"><span class="tip-icon">${icon('lightbulb')}</span><h3>Faltou no mercado?</h3><p>Deixe o produto pendente. Ele continua aqui, sem precisar adicionar de novo.</p></div></aside></div>`;
+ return `<div class="stats"><div class="stat"><span class="stat-icon green">${icon('list-checks')}</span><div><span>Na lista</span><strong>${count} <small>${count===1?'produto':'produtos'}</small></strong></div></div><div class="stat"><span class="stat-icon amber">${icon('shopping-cart')}</span><div><span>No carrinho</span><strong>${bought} <small>de ${count} completos</small></strong></div></div><div class="stat"><span class="stat-icon blue">${icon('wallet')}</span><div><span>Total estimado</span><strong>${money(est)}</strong><small class="${all.some(i=>i.price==null)?'':'estimate-complete'}">${all.some(i=>i.price==null)?'Estimativa incompleta':'Com os preços disponíveis'}</small></div></div></div><div class="list-layout"><section class="panel list-panel"><div class="list-toolbar"><div class="tabs">${[['all','Todos',all.length],['pending','Pendentes',all.filter(i=>i.bought<i.quantity).length],['bought','No carrinho',all.filter(i=>i.bought>0).length]].map(([key,label,n])=>`<button data-filter="${key}" class="${filter===key?'selected':''}">${label}<span>${n}</span></button>`).join('')}</div><label class="search">${icon('search')}<input id="search" type="text" inputmode="search" role="searchbox" placeholder="Buscar na lista" value="${esc(search)}" aria-label="Buscar na lista"></label></div>${shown.length?groups.filter(s=>shown.some(i=>i.sector===s)).map(s=>`<div class="sector-heading"><span>${icon(sectorIcon(s))}${esc(s)}</span><small>${shown.filter(i=>i.sector===s).length} itens</small></div><div>${shown.filter(i=>i.sector===s).sort((a,b)=>(a.bought>=a.quantity)-(b.bought>=b.quantity)) .map(item=>renderItem(item,matchingPriceSeries(item,comparisons))).join('')}</div>`).join(''):empty(all.length?'Nenhum item por aqui':'Sua próxima compra começa aqui',all.length?'Tente outra busca ou filtro.':'Adicione o que está faltando. Quem mora com você também pode ajudar.',!all.length?button('Adicionar primeiro item','add','plus'):'')}<button class="add-row" data-action="add">${icon('plus')}Adicionar produto à lista</button></section><aside class="right-column"><div class="summary-card"><div class="summary-title">${icon('shopping-bag')}Sua compra</div><div class="progress-label"><span>Lista concluída</span><strong>${count?Math.round(bought/count*100):0}%</strong></div><div class="progress"><div style="width:${count?bought/count*100:0}%"></div></div><div class="summary-row"><span>Já no carrinho</span><strong>${money(real)}</strong></div><div class="summary-row muted"><span>Ainda na lista</span><span>${money(Math.max(0,est-real))}</span></div><div class="summary-total"><span>Total estimado</span><strong>${money(est)}</strong></div><button class="primary full" data-action="finish" ${!all.some(i=>i.bought>0)?'disabled':''}>${icon('check')}Finalizar compra</button><p class="micro">Os itens não comprados continuam na lista para a próxima vez.</p></div><div class="tip-card"><span class="tip-icon">${icon('lightbulb')}</span><h3>Faltou no mercado?</h3><p>Deixe o produto pendente. Ele continua aqui, sem precisar adicionar de novo.</p></div></aside></div>`;
 }
 function sectorIcon(s){return ({Hortifruti:'carrot',Padaria:'croissant',Laticínios:'milk','Carnes e ovos':'egg',Mercearia:'wheat',Bebidas:'cup-soda',Limpeza:'spray-can',Higiene:'bath',Tecnologia:'cpu',Salgadinhos:'popcorn'})[s]||'package';}
 function shoppingMarketPrices(comparisons){
@@ -110,7 +110,7 @@ function shoppingMarketPrices(comparisons){
  }).join('');
 }
 
-function renderItem(i,comparisons){const done=i.bought>=i.quantity;return `<article class="item ${done?'done':''}"><button class="check-item ${done?'checked':i.bought>0?'partial':''}" data-check="${i.id}" aria-label="${done?'Desmarcar':'Marcar compra de'} ${esc(i.name)}">${i.bought>0?icon(done?'check':'minus'):''}</button><div class="item-main"><button class="item-name" data-edit="${i.id}">${esc(i.name)}</button>${state.shopping&&i.createdAt>state.lastSeen&&(i.requesterId ? i.requesterId!==session.user?.id : i.requester!==state.name)?'<span class="new-tag">Novo</span>':''}<div class="item-meta"><span>${i.quantity} ${esc(i.unit||'un')}${i.bought>0&&!done?` · ${i.bought} comprado(s)`:''}</span>${i.note||i.quickNote?`<span class="note">${esc([i.note,i.quickNote].filter(Boolean).join(' · '))}</span>`:''}<span class="requester">${esc(i.requester||'Você')}</span></div>${shoppingMarketPrices(comparisons)}</div><div class="item-price">${i.price!=null?money(i.price):'<span>Sem preço</span>'}<small>${i.price!=null?'por '+esc(i.unit||'un'):''}</small></div><button class="icon-btn more" data-edit="${i.id}" aria-label="Editar ${esc(i.name)}">${icon('ellipsis')}</button></article>`;}
+function renderItem(i,comparisons){const done=i.bought>=i.quantity;return `<article class="item ${done?'done':''}"><button class="check-item ${done?'checked':i.bought>0?'partial':''}" data-check="${i.id}" aria-label="${done?'Desmarcar':'Marcar compra de'} ${esc(i.name)}">${i.bought>0?icon(done?'check':'minus'):''}</button><div class="item-main"><button class="item-name" data-edit="${i.id}">${esc(i.name)}</button>${state.shopping&&i.createdAt>state.lastSeen&&(i.requesterId ? i.requesterId!==session.user?.id : i.requester!==state.name)?'<span class="new-tag">Novo</span>':''}<div class="item-meta"><span>${i.quantity} ${esc(i.unit||'un')}${i.bought>0&&!done?` · ${i.bought} comprado(s)`:''}</span>${i.note||i.quickNote?`<span class="note">${esc([i.note,i.quickNote].filter(Boolean).join(' · '))}</span>`:''}<span class="requester">${esc(i.requester||'Você')}</span></div>${shoppingMarketPrices(comparisons)}</div><div class="item-price">${i.price!=null?money(i.price):'<span>Sem preço</span>'}<small>${i.price!=null?'por '+esc(i.unit||'un'):''}</small></div><div class="item-actions"><button class="icon-btn more" data-edit="${i.id}" aria-label="Editar ${esc(i.name)}">${icon('ellipsis')}</button><button class="icon-btn item-trash" data-remove-item="${i.id}" aria-label="Remover ${esc(i.name)}" title="Remover da lista">${icon('trash-2')}</button></div></article>`;}
 const catalogDrafts=new Map();
 let catalogSelecting=false,catalogSector=null;
 const catalogSelected=new Set();
@@ -368,6 +368,7 @@ function bind(){
  document.querySelectorAll('[data-check]').forEach(el=>el.onclick=()=>{const i=get(el.dataset.check);if(i.bought>0){const old={...i};put('item',{...i,bought:0,paidPrice:undefined});toast('Produto desmarcado.',()=>put('item',old));}else buyDialog(i);});
  document.querySelectorAll('[data-edit]').forEach(el=>el.onclick=()=>itemDialog(get(el.dataset.edit)));
  bindCatalogForms();
+ for(const button of document.querySelectorAll('[data-remove-item]'))button.onclick=()=>confirmRemoveItem(button.dataset.removeItem);
  for(const button of document.querySelectorAll('[data-sector-filter]'))button.onclick=()=>{catalogSector=button.dataset.sectorFilter||null;app();};
  for(const control of document.querySelectorAll('[data-catalog-choice]')){
   control.onchange=()=>{
@@ -422,7 +423,7 @@ function bindCatalogForms(){
     const notes=[...new Set([existing.quickNote,observation].filter(Boolean))];
     put('item',{...existing,quantity:newQuantity,quickNote:notes.join(' · ')});
    }else{
-    put('item',{productId:id,name:product.name,quantity:newQuantity,bought:0,unit,sector:product.sector||'Sem setor',price:latest?.price??product.lastPrice??null,size:product.size||1,packUnit:product.packUnit||unit,presentation:product.presentation||'',quickNote:observation,createdAt:Date.now(),requester:state.name||session.user?.email?.split('@')[0]||'Você'});
+    put('item',{productId:id,name:product.name,quantity:newQuantity,bought:0,unit,sector:product.sector||'Sem setor',price:latest?.price??product.lastPrice??null,size:product.size||1,packUnit:product.packUnit||unit,presentation:product.presentation||'',quickNote:observation,createdAt:Date.now(),requester:requesterName()});
    }
    toast(existing?'Quantidade atualizada na lista.':'Produto adicionado à lista.');
   };
@@ -430,9 +431,38 @@ function bindCatalogForms(){
 }
 function sectorOptions(selected){return [...new Set([...sectors(),selected].filter(Boolean))].map(s=>`<option ${s===selected?'selected':''}>${esc(s)}</option>`).join('');}
 function units(selected='un'){return ['un','kg','g','L','ml','pacote','caixa'].map(s=>`<option ${s===selected?'selected':''}>${s}</option>`).join('');}
+function requestDetails(name,product,item){
+ const unchanged=item&&normalize(item.name)===normalize(name);
+ const normalized=normalize(name);
+ const measure=/(?:^| )\d+ (kg|g|ml|l)$/.test(normalized)?null:normalized.match(/(?:^| )(kg|g|ml|l)$/)?.[1];
+ const unit=(unchanged?item.unit:null)||product?.unit||(measure==='l'?'L':measure)||'un';
+ const latest=product?latestCatalogPrice(product,priceEntries()):null;
+ return {
+  sector:(unchanged?item.sector:null)||product?.sector||suggestSector(name,sectors()),
+  unit,
+  price:(unchanged?item.price:null)??latest?.price??product?.lastPrice??null,
+  size:(unchanged?item.size:null)||product?.size||1,
+  packUnit:(unchanged?item.packUnit:null)||product?.packUnit||unit,
+  presentation:(unchanged?item.presentation:null)||product?.presentation||''
+ };
+}
+function requesterName(){
+ return state.name||session.user?.user_metadata?.groceries_display_name||session.user?.user_metadata?.full_name||'Você';
+}
+function confirmRemoveItem(id){
+ const item=get(id);
+ if(!item)return;
+ confirmDialog('Remover da lista?',`Remover “${item.name}” da lista de compras?`,()=>{
+  const current=get(id);
+  if(!current)return;
+  remove(id);
+  toast('Item removido.',()=>put('item',current));
+ });
+}
+
 function itemDialog(item=null,product=null){
  const p=product|| (item?.productId?get(item.productId):null);const value=item||{name:p?.name||'',quantity:1,unit:p?.unit||'un',sector:p?.sector||'Sem setor',price:p?.lastPrice??null,size:p?.size||1,packUnit:p?.packUnit||'un',presentation:p?.presentation||''};
- showModal(item?'Editar item':'Adicionar à lista',`<form id="item-form"><label>Produto<input name="name" id="product-name" list="product-suggestions" value="${esc(value.name)}" placeholder="Ex.: leite integral" maxlength="120" required autocomplete="off"><datalist id="product-suggestions">${records('product').map(p=>`<option value="${esc(p.name)}">${esc(p.sector)}</option>`).join('')}</datalist></label><div id="duplicate-hint" class="field-hint"></div><div id="catalog-matches" class="catalog-matches"></div>${!item?'<button type="button" class="text-btn" id="request-generic" aria-pressed="false" hidden>Pedir sem escolher marca ou tamanho</button>':''}<div class="form-row"><div><label for="item-quantity">Quantidade</label><div class="catalog-quantity item-quantity-stepper"><button type="button" class="icon-btn" data-item-qty="-1" aria-label="Diminuir uma unidade">${icon('minus')}</button><input id="item-quantity" name="quantity" type="number" min="0.001" max="100000" step="0.001" inputmode="decimal" value="${value.quantity}" required><button type="button" class="icon-btn" data-item-qty="1" aria-label="Aumentar uma unidade">${icon('plus')}</button></div></div><label>Unidade<select name="unit">${units(value.unit)}</select></label></div><label>Setor<select name="sector" id="item-sector">${sectorOptions(value.sector)}</select></label><label>Observação para quem fará as compras <span class="optional">opcional</span><input name="note" value="${esc(value.note)}" maxlength="300" placeholder="Marca preferida, substituição…"></label><div class="form-row"><label>Preço por unidade (R$)<input name="price" type="number" min="0" max="1000000" step="0.01" value="${value.price??''}" placeholder="Opcional"></label><label>Quem pediu<input name="requester" maxlength="60" value="${esc(value.requester||state.name||session.user?.email?.split('@')[0]||'Você')}"></label></div><details><summary>Marca e tamanho da embalagem</summary><label>Apresentação<input name="presentation" maxlength="120" placeholder="Ex.: marca X, integral" value="${esc(value.presentation)}"></label><div class="form-row"><label>Tamanho<input name="size" type="number" min="0.001" step="0.001" value="${value.size||1}"></label><label>Unidade da embalagem<select name="packUnit">${units(value.packUnit||'un')}</select></label></div></details>${!item?'<label class="item-bought-now"><input type="checkbox" name="boughtNow">Já comprei este item</label>':''}<p id="form-error" class="form-error" role="alert"></p><div class="modal-actions">${item?'<button type="button" class="danger-text" id="remove-item">Remover item</button>':'<button type="button" class="secondary" data-cancel>Cancelar</button>'}<button class="primary" type="submit">${icon('plus')}${item?'Salvar alterações':'Adicionar à lista'}</button></div></form>`);
+ showModal(item?'Editar item':'Adicionar à lista',`<form id="item-form"><label>Produto<input name="name" id="product-name" list="product-suggestions" value="${esc(value.name)}" placeholder="Ex.: leite integral" maxlength="120" required autocomplete="off"><datalist id="product-suggestions">${records('product').map(p=>`<option value="${esc(p.name)}">${esc(p.sector)}</option>`).join('')}</datalist></label><div id="duplicate-hint" class="field-hint"></div><div id="catalog-matches" class="catalog-matches"></div>${!item?'<button type="button" class="text-btn" id="request-generic" aria-pressed="false" hidden>Pedir sem escolher marca ou tamanho</button>':''}<div><label for="item-quantity">Quantidade</label><div class="catalog-quantity item-quantity-stepper"><button type="button" class="icon-btn" data-item-qty="-1" aria-label="Diminuir uma unidade">${icon('minus')}</button><input id="item-quantity" name="quantity" type="number" min="0.001" max="100000" step="0.001" inputmode="decimal" value="${value.quantity}" required><button type="button" class="icon-btn" data-item-qty="1" aria-label="Aumentar uma unidade">${icon('plus')}</button></div></div><dl class="item-facts"><div><dt>Setor</dt><dd id="item-sector"></dd></div><div><dt>Unidade</dt><dd id="item-unit"></dd></div><div><dt>Preço por unidade</dt><dd id="item-price"></dd></div></dl>${!item?'<label class="item-bought-now"><input type="checkbox" name="boughtNow">Já coloquei no carrinho</label>':''}<label>Observação (opcional) para quem fará as compras<input name="note" value="${esc(value.note)}" maxlength="300" placeholder="Marca preferida, substituição…"></label><p id="form-error" class="form-error" role="alert"></p><div class="modal-actions">${item?'<button type="button" class="danger-text" id="remove-item">Remover item</button>':'<button type="button" class="secondary" data-cancel>Cancelar</button>'}<button class="primary" type="submit">${icon('plus')}${item?'Salvar alterações':'Adicionar à lista'}</button></div></form>`);
  const quantity=$('#item-quantity');
  for(const button of document.querySelectorAll('[data-item-qty]')){
   button.onclick=()=>{
@@ -442,17 +472,18 @@ function itemDialog(item=null,product=null){
    if(next>0&&next<=100000)quantity.value=Math.round(next*1000)/1000;
   };
  }
- let sectorChanged=!!item||!!p;$('#item-sector').onchange=()=>{sectorChanged=true;};
- let unitChanged=!!item||!!p;
+
  let generic=Boolean(item?.generic),mergeId='';
  const form=$('#item-form');
  const productInput=$('#product-name');
  const genericButton=$('#request-generic');
  const updateProduct=()=>{
   const name=productInput.value,existing=generic?null:resolveCatalogProduct(name);
-  if(!sectorChanged)$('#item-sector').value=existing?.sector||suggestSector(name,sectors());
-  if(!unitChanged&&existing?.unit)form.elements.unit.value=existing.unit;
-  const pending=records('item').filter(row=>row.id!==item?.id&&row.unit===form.elements.unit.value);
+  const details=requestDetails(existing?.name||name,existing||(!generic&&name===p?.name?p:null),item);
+  $('#item-sector').textContent=details.sector;
+  $('#item-unit').textContent=details.unit;
+  $('#item-price').textContent=priceLabel(details.price);
+  const pending=records('item').filter(row=>row.id!==item?.id&&row.unit===details.unit);
   const sameProduct=row=>existing?row.productId===existing.id:!row.productId;
   const exact=pending.find(row=>sameProduct(row)&&normalize(row.name)===normalize(existing?.name||name));
   const similar=pending.filter(row=>sameProduct(row)&&row.quantity>(row.bought||0)&&equivalentRequestNames(row.name,name));
@@ -483,46 +514,45 @@ function itemDialog(item=null,product=null){
    }));
   }
  };
- form.elements.unit.onchange=()=>{unitChanged=true;mergeId='';updateProduct();};
  productInput.oninput=()=>{generic=false;mergeId='';updateProduct();};
  if(genericButton)genericButton.onclick=()=>{generic=!generic;mergeId='';updateProduct();};
  updateProduct();
  $('[data-cancel]')?.addEventListener('click',closeModal);
- $('#remove-item')?.addEventListener('click',()=>{const old={...item};remove(item.id);closeModal();toast('Item removido.',()=>put('item',old));});
+ $('#remove-item')?.addEventListener('click',()=>confirmRemoveItem(item.id));
  form.onsubmit=event=>{
   event.preventDefault();
   const f=Object.fromEntries(new FormData(form));
-  const qty=number(f.quantity),price=f.price===''?null:number(f.price),size=number(f.size)||1;
+  const qty=number(f.quantity);
   const typed=f.name.trim();
-  if(!typed)return;
+  if(!typed||!(qty>0&&qty<=100000))return;
   const existing=generic?null:resolveCatalogProduct(typed),name=existing?.name||typed;
+  const details=requestDetails(name,existing,item);
   const sameProduct=row=>existing?row.productId===existing.id:!row.productId;
   const matches=records('item').filter(row=>row.id!==item?.id&&sameProduct(row));
-  const dup=matches.find(row=>row.id===mergeId&&row.unit===f.unit&&equivalentRequestNames(row.name,typed))||
-   matches.find(row=>normalize(row.name)===normalize(name)&&row.unit===f.unit);
-  const otherUnit=matches.some(row=>normalize(row.name)===normalize(name)&&row.unit!==f.unit);
+  const dup=matches.find(row=>row.id===mergeId&&row.unit===details.unit&&equivalentRequestNames(row.name,typed))||
+   matches.find(row=>normalize(row.name)===normalize(name)&&row.unit===details.unit);
+  const otherUnit=matches.some(row=>normalize(row.name)===normalize(name)&&row.unit!==details.unit);
   if(!dup&&otherUnit){$('#form-error').textContent='Este produto já está na lista com outra unidade. Edite o item existente ou diferencie o nome.';return;}
   if(item&&qty<(item.bought||0)){$('#form-error').textContent='A quantidade pedida não pode ser menor que a já comprada.';return;}
-  const {boughtNow,...fields}=f;
-  const alreadyBought=Boolean(boughtNow);
+  const alreadyBought=Boolean(f.boughtNow);
   batch(()=>{
    const productId=existing?.id;
    if(dup){
     const quantity=Math.round((dup.quantity+qty)*1000)/1000;
     const bought=(dup.bought||0)+(alreadyBought?qty:(item?.bought||0));
     const existingPaid=dup.paidPrice;
-    const newPaid=alreadyBought?price:item?.paidPrice;
+    const newPaid=alreadyBought?null:item?.paidPrice;
     const paidPrice=!dup.bought?newPaid:!(alreadyBought||item?.bought)?existingPaid:
      existingPaid==null||newPaid==null?null:((existingPaid*dup.bought+newPaid*(alreadyBought?qty:item.bought))/bought);
     put('item',{...dup,quantity,bought:Math.round(bought*1000)/1000,paidPrice});
     if(item)remove(item.id);
    }else{
-    const row={...item,...fields,name,quantity:qty,price,size,productId,generic:!productId,bought:item?.bought||0,createdAt:item?.createdAt||Date.now()};
-    put('item',alreadyBought?purchaseItem(row,qty,price):row);
+    const row={...item,...details,name,quantity:qty,note:f.note.trim(),requester:item?.requester||requesterName(),productId,generic:!productId,bought:item?.bought||0,createdAt:item?.createdAt||Date.now()};
+    put('item',alreadyBought?purchaseItem(row,qty,null):row);
    }
   });
   closeModal();
-  toast(alreadyBought?'Produto adicionado a Comprados.':dup?'Produto existente: quantidade aumentada.':'Item salvo.');
+  toast(alreadyBought?'Produto adicionado a No carrinho.':dup?'Produto existente: quantidade aumentada.':'Item salvo.');
  };
 }
 function buyDialog(i){showModal('Colocar no carrinho',`<form id="buy-form"><p class="dialog-lead">${esc(i.name)}</p><div class="form-row"><label>Quantidade comprada (${esc(i.unit)})<input name="qty" type="number" min="0.001" max="${i.quantity}" step="0.001" value="${i.quantity}" required></label><label>Preço por ${esc(i.unit)} (R$)<input name="price" type="number" min="0" max="1000000" step="0.01" value="${i.paidPrice??i.price??''}" placeholder="Opcional"></label></div><p class="micro">Comprou menos? O restante continua pendente. Sem preço, o valor fica como não informado.</p><p id="form-error" class="form-error"></p><div class="modal-actions"><button type="button" class="secondary" data-cancel>Cancelar</button><button class="primary">${icon('check')}Confirmar</button></div></form>`);$('[data-cancel]').onclick=closeModal;$('#buy-form').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);try{put('item',purchaseItem(i,number(f.get('qty')),f.get('price')===''?null:number(f.get('price'))));closeModal();toast('Produto no carrinho.',()=>put('item',i));}catch(err){$('#form-error').textContent=err.message;}};}
@@ -531,7 +561,7 @@ function savePurchase(items,market,date,extra={}){return batch(()=>{const {purch
 function productDialog(p){showModal(p?'Editar produto':'Novo produto',`<form id="product-form"><label>Nome<input name="name" required maxlength="120" value="${esc(p?.name)}"></label><label>Setor<select name="sector">${sectorOptions(p?.sector||'Sem setor')}</select></label><label>Unidade<select name="unit">${units(p?.unit||'un')}</select></label><div class="modal-actions">${p?'<button type="button" class="danger-text" id="delete-product">Excluir produto</button>':'<button type="button" class="secondary" data-cancel>Cancelar</button>'}<button class="primary">Salvar produto</button></div><p id="form-error" class="form-error"></p></form>`);$('[data-cancel]')?.addEventListener('click',closeModal);$('#delete-product')?.addEventListener('click',()=>{remove(p.id);closeModal();toast('Produto excluído do catálogo.');});$('#product-form').onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));f.name=f.name.trim();if(!f.name)return;const duplicate=records('product').find(r=>r.id!==p?.id&&normalize(r.name)===normalize(f.name));if(duplicate){$('#form-error').textContent='Já existe um produto com este nome.';return;}put('product',{...p,...f});for(const i of records('item').filter(i=>i.productId===p?.id))put('item',{...i,sector:f.sector});closeModal();toast('Produto salvo.');};}
 function sectorDialog(index){const old=index===undefined?'':sectors()[index];showModal(old?'Renomear setor':'Criar setor',`<form id="sector-form"><label>Nome do setor<input name="name" value="${esc(old)}" maxlength="50" required></label><p id="form-error" class="form-error"></p><div class="modal-actions"><button class="primary">Salvar setor</button></div></form>`);$('#sector-form').onsubmit=e=>{e.preventDefault();const name=new FormData(e.target).get('name').trim();if(!name||sectors().some(s=>s!==old&&normalize(s)===normalize(name))){$('#form-error').textContent='Escolha um nome diferente dos setores existentes.';return;}if(old==='Sem setor'){$('#form-error').textContent='O nome do setor padrão precisa permanecer.';return;}const list=[...sectors()];if(old){list[index]=name;for(const kind of ['item','product'])for(const r of records(kind).filter(r=>r.sector===old))put(kind,{...r,sector:name});}else list.splice(list.length-1,0,name);setSectors(list);closeModal();};}
 function confirmDialog(title,text,fn){showModal(title,`<p>${esc(text)}</p><div class="modal-actions"><button class="secondary" data-cancel>Cancelar</button><button class="primary" id="confirm">Confirmar</button></div>`);$('[data-cancel]').onclick=closeModal;$('#confirm').onclick=()=>{fn();closeModal();};}
-function purchaseDialog(p){showModal(p.market,`<div class="summary-row"><span class="muted">${dateLabel(p.date)} · ${p.lines.length} produtos</span><button class="secondary" id="edit-market">${icon('pencil')}Editar mercado</button></div><div class="purchase-lines">${p.lines.map((l,idx)=>`<label class="history-line"><input type="checkbox" name="repeat" value="${idx}"><span><strong>${esc(l.name)}</strong><small>${l.quantity} ${esc(l.unit||'un')}</small><small>Original: ${priceLabel(originalPrice(l))} · Pago: ${priceLabel(l.price)} por ${esc(l.unit||'un')}${l.allocatedDiscount>0?' · desconto geral rateado':''}</small></span><strong>${priceLabel(l.total)}</strong><button class="icon-btn" data-price-edit="${idx}" aria-label="Editar produto ${esc(l.name)}">${icon('pencil')}</button></label>`).join('')}</div><div class="summary-total"><strong>Total</strong><strong>${money(p.total)}</strong></div><div class="modal-actions"><button class="danger-text" id="delete-purchase">Excluir compra</button><button class="secondary" id="select-all">Selecionar todos</button><button class="primary" id="repeat-purchase">${icon('plus')}Adicionar selecionados à lista</button></div>`,true);$('#edit-market').onclick=()=>editMarket(p);$('#delete-purchase').onclick=()=>deletePurchase(p);$('#select-all').onclick=()=>document.querySelectorAll('[name=repeat]').forEach(el=>el.checked=true);$('#repeat-purchase').onclick=()=>{const selected=[...document.querySelectorAll('[name=repeat]:checked')].map(e=>p.lines[+e.value]);if(!selected.length)return toast('Selecione os produtos que quer comprar novamente.');for(const l of selected){const existing=records('item').find(i=>normalize(i.name)===normalize(l.name)&&i.unit===l.unit);if(!existing)put('item',{...l,id:undefined,quantity:l.quantity,bought:0,createdAt:Date.now(),requester:state.name||'Você'});}closeModal();page='list';app();toast('Produtos adicionados. Os que já estavam na lista foram mantidos.');};document.querySelectorAll('[data-price-edit]').forEach(el=>el.onclick=e=>{e.preventDefault();priceEdit(p,+el.dataset.priceEdit);});}
+function purchaseDialog(p){showModal(p.market,`<div class="summary-row"><span class="muted">${dateLabel(p.date)} · ${p.lines.length} produtos</span><button class="secondary" id="edit-market">${icon('pencil')}Editar mercado</button></div><div class="purchase-lines">${p.lines.map((l,idx)=>`<label class="history-line"><input type="checkbox" name="repeat" value="${idx}"><span><strong>${esc(l.name)}</strong><small>${l.quantity} ${esc(l.unit||'un')}</small><small>Original: ${priceLabel(originalPrice(l))} · Pago: ${priceLabel(l.price)} por ${esc(l.unit||'un')}${l.allocatedDiscount>0?' · desconto geral rateado':''}</small></span><strong>${priceLabel(l.total)}</strong><button class="icon-btn" data-price-edit="${idx}" aria-label="Editar produto ${esc(l.name)}">${icon('pencil')}</button></label>`).join('')}</div><div class="summary-total"><strong>Total</strong><strong>${money(p.total)}</strong></div><div class="modal-actions"><button class="danger-text" id="delete-purchase">Excluir compra</button><button class="secondary" id="select-all">Selecionar todos</button><button class="primary" id="repeat-purchase">${icon('plus')}Adicionar selecionados à lista</button></div>`,true);$('#edit-market').onclick=()=>editMarket(p);$('#delete-purchase').onclick=()=>deletePurchase(p);$('#select-all').onclick=()=>document.querySelectorAll('[name=repeat]').forEach(el=>el.checked=true);$('#repeat-purchase').onclick=()=>{const selected=[...document.querySelectorAll('[name=repeat]:checked')].map(e=>p.lines[+e.value]);if(!selected.length)return toast('Selecione os produtos que quer comprar novamente.');for(const l of selected){const existing=records('item').find(i=>normalize(i.name)===normalize(l.name)&&i.unit===l.unit);if(!existing)put('item',{...l,id:undefined,quantity:l.quantity,bought:0,createdAt:Date.now(),requester:requesterName()});}closeModal();page='list';app();toast('Produtos adicionados. Os que já estavam na lista foram mantidos.');};document.querySelectorAll('[data-price-edit]').forEach(el=>el.onclick=e=>{e.preventDefault();priceEdit(p,+el.dataset.priceEdit);});}
 function deletePurchase(p){
  confirmDialog('Excluir esta compra?', 'A compra será removida do histórico e o cupom poderá ser importado novamente. Os nomes corrigidos serão mantidos.',()=>{
   const current=get(p.id);
@@ -607,7 +637,7 @@ function accountDialog(mode='login',message='',email=''){
  const reset=mode==='reset',register=mode==='register';
  const title=reset?'Esqueci minha senha':register?'Criar conta':'Entrar';
  const password=reset?'':`<label>Senha<input type="password" name="password" autocomplete="${register?'new-password':'current-password'}" ${register?'minlength="8"':''} required></label>`;
- showModal(title,`<form id="account-form"><label>E-mail<input type="email" name="email" value="${esc(email)}" required autocomplete="email"></label>${password}<p id="account-error" role="status">${esc(message)}</p><button class="primary" type="submit">${reset?'Enviar link de recuperação':title}</button></form><div class="modal-actions">${!reset&&!register?'<button class="text-btn" id="forgot-password">Esqueci minha senha</button><button class="secondary" id="register-account">Criar conta</button>':'<button class="text-btn" id="back-to-login">Voltar para entrar</button>'}</div>`);
+ showModal(title,`<form id="account-form">${register?'<label>Seu nome<input name="name" autocomplete="name" maxlength="60" required></label>':''}<label>E-mail<input type="email" name="email" value="${esc(email)}" required autocomplete="email"></label>${password}<p id="account-error" role="status">${esc(message)}</p><button class="primary" type="submit">${reset?'Enviar link de recuperação':title}</button></form><div class="modal-actions">${!reset&&!register?'<button class="text-btn" id="forgot-password">Esqueci minha senha</button><button class="secondary" id="register-account">Criar conta</button>':'<button class="text-btn" id="back-to-login">Voltar para entrar</button>'}</div>`);
  const form=$('#account-form'),status=$('#account-error'),submit=form.querySelector('button');
  const emailValue=()=>form.elements.email.value.trim();
  $('#forgot-password')?.addEventListener('click',()=>accountDialog('reset','',emailValue()));
@@ -625,7 +655,9 @@ function accountDialog(mode='login',message='',email=''){
     if(error)throw error;
     status.textContent='Se houver uma conta para este e-mail, enviaremos um link para redefinir a senha.';
    }else if(register){
-    const {data,error}=await supabase.auth.signUp({email,password:form.elements.password.value,options:{emailRedirectTo:url.href}});
+    const name=form.elements.name.value.trim();
+    if(!name){status.textContent='Informe seu nome para criar a conta.';form.elements.name.focus();return;}
+    const {data,error}=await supabase.auth.signUp({email,password:form.elements.password.value,options:{emailRedirectTo:url.href,data:{groceries_display_name:name}}});
     if(error)throw error;
     if(data.session){if(form.isConnected)closeModal();}
     else status.textContent='Confira seu e-mail para confirmar a conta. Se já tiver cadastro, entre ou recupere a senha.';

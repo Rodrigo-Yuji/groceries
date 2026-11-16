@@ -310,3 +310,12 @@ fieldset{border:1px solid var(--border);border-radius:10px;min-width:0}
 #request-generic[hidden],.receipt-review[hidden]{display:none}
 #request-generic[aria-pressed=true]{background:#e1efda;border-color:#87a585;color:var(--jade)}
 .receipt-review{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:#edf4e9;border-radius:9px;padding:8px 10px;font-size:.84rem}
+.item-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 10px;margin:2px 0;padding:8px 10px;background:#edf4e9;border-radius:8px}
+.item-facts dt{font-size:.72rem;color:var(--muted)}
+.item-facts dd{margin:1px 0 0;font-weight:650;font-size:.85rem;overflow-wrap:anywhere}
+.item-quantity-stepper{width:min(100%,160px)}
+.item-actions{display:flex;gap:2px}
+.item-actions .icon-btn{width:40px;padding:0}
+.item-trash{color:#8e3431}
+.item-trash:hover{background:#f8eae8}
+@media(max-width:480px){.item-actions .icon-btn{width:32px;min-height:40px}.item-actions svg{width:17px;height:17px}}
