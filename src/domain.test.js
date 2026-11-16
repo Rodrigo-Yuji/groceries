@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalize,finishPurchase,purchaseItem,receiptFingerprint,unitPrice,distinctPriceLines} from './domain.js';
+import {normalize,finishPurchase,purchaseItem,receiptFingerprint,unitPrice,distinctPriceLines,comparePackages} from './domain.js';
 
 test('normaliza acentos e espaços preservando variantes', () => {
  assert.equal(normalize('  CAFÉ   em pó '),normalize('cafe em po'));
@@ -43,4 +43,13 @@ test('leva um produto avulso marcado como comprado ao histórico sem exigir vín
  assert.equal(purchase.lines[0].name,draft.name);
  assert.equal(purchase.total,11.98);
  assert.deepEqual(remaining,[]);
+});
+
+test('compara o custo proporcional de embalagens em g/kg, mL/L e unidades',()=>{
+ const result=comparePackages({price:10,quantity:400,unit:'g'},{price:19,quantity:1,unit:'kg'});
+ assert.deepEqual(result,{status:'comparable',first:{value:25,unit:'kg'},second:{value:19,unit:'kg'},winner:'B',savings:24});
+ assert.equal(comparePackages({price:7,quantity:500,unit:'ml'},{price:14,quantity:1,unit:'L'}).winner,null);
+ assert.equal(comparePackages({price:9,quantity:3,unit:'un'},{price:10,quantity:4,unit:'un'}).winner,'B');
+ assert.equal(comparePackages({price:1,quantity:1,unit:'kg'},{price:1,quantity:1,unit:'L'}).status,'incompatible');
+ assert.equal(comparePackages({price:1,quantity:0,unit:'g'},{price:1,quantity:1,unit:'g'}).status,'incomplete');
 });

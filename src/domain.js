@@ -75,3 +75,14 @@ export function distinctPriceLines(lines){
   return true;
  });
 }
+
+export function comparePackages(a,b){
+ const convert=item=>Number.isFinite(item.price)&&Number.isFinite(item.quantity)&&['un','g','kg','ml','L'].includes(item.unit)?
+  unitPrice(item.price,item.quantity,item.unit):null;
+ const first=convert(a),second=convert(b);
+ if(!first||!second)return {status:'incomplete'};
+ if(first.unit!==second.unit)return {status:'incompatible'};
+ const difference=Math.abs(first.value-second.value),higher=Math.max(first.value,second.value);
+ const winner=difference<=Number.EPSILON*Math.max(1,higher)*8?null:first.value<second.value?'A':'B';
+ return {status:'comparable',first,second,winner,savings:winner?difference/higher*100:0};
+}
