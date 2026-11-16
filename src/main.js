@@ -267,7 +267,7 @@ function conflictDialog() {
  }
 }
 function receiptDialog(draft={lines:[],market:'',date:today()}) {
- showModal('Revisar cupom', `<div class="form-row"><label>Foto para OCR<input type="file" id="ocr" accept="image/*" capture="environment"></label><label>Imagem com QR Code<input type="file" id="qr" accept="image/*"></label><label>XML fiscal ou página HTML salva<input type="file" id="xml" multiple accept=".xml,.html,.htm,application/xml,text/xml,text/html"></label><label>Pasta de arquivos do Opera<input type="file" id="receipt-folder" webkitdirectory multiple></label></div><p id="receipt-status" role="status"></p><form id="receipt-form"><div class="form-row"><label>Mercado<input name="market" value="${esc(draft.market)}" required></label><label>Data<input name="date" type="date" value="${esc(draft.date||today())}" required></label></div><label>Total do cupom (R$)<input name="expected" type="number" min="0" step=".01" value="${esc(draft.expected)}"></label><label>Desconto geral do cupom (R$)<input name="receiptDiscount" type="number" min="0" step=".01" value="${esc(draft.discount??0)}"></label><datalist id="receipt-products">${records('product').map(p=>`<option value="${esc(p.name)}"></option>`).join('')}</datalist><div id="receipt-lines"></div><button class="secondary" id="add-line" type="button">Adicionar linha</button><output id="receipt-total"></output><button class="primary">Salvar compra revisada</button></form>`,true);
+ showModal('Revisar cupom', `<div class="form-row"><label>Foto para OCR<input type="file" id="ocr" accept="image/*" capture="environment"></label><label>Imagem com QR Code<input type="file" id="qr" accept="image/*"></label><label>XML fiscal ou página HTML salva<input type="file" id="xml" multiple accept=".xml,.html,.htm,application/xml,text/xml,text/html"></label></div><p id="receipt-status" role="status"></p><form id="receipt-form"><div class="form-row"><label>Mercado<input name="market" value="${esc(draft.market)}" required></label><label>Data<input name="date" type="date" value="${esc(draft.date||today())}" required></label></div><label>Total do cupom (R$)<input name="expected" type="number" min="0" step=".01" value="${esc(draft.expected)}"></label><label>Desconto geral do cupom (R$)<input name="receiptDiscount" type="number" min="0" step=".01" value="${esc(draft.discount??0)}"></label><datalist id="receipt-products">${records('product').map(p=>`<option value="${esc(p.name)}"></option>`).join('')}</datalist><div id="receipt-lines"></div><button class="secondary" id="add-line" type="button">Adicionar linha</button><output id="receipt-total"></output><button class="primary">Salvar compra revisada</button></form>`,true);
  const form = $('#receipt-form');
  function lines() {
   return [...form.querySelectorAll('fieldset')].map(row=>{
@@ -296,14 +296,14 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
  form.oninput=totals;
  $('#add-line').onclick=()=>add();
  totals();
- for(const [id,read] of [['ocr',file=>readImage(file,n=>{$('#receipt-status').textContent=`Lendo imagem: ${n}%`;})],['xml',readReceiptFiles],['receipt-folder',readReceiptFiles],['qr',readQR]]) {
+ for(const [id,read] of [['ocr',file=>readImage(file,n=>{$('#receipt-status').textContent=`Lendo imagem: ${n}%`;})],['xml',readReceiptFiles],['qr',readQR]]) {
   $('#'+id).onchange=async event=>{
    const file=event.target.files[0];
    if(!file)return;
    modalBusy=true;
    try {
     $('#receipt-status').textContent='Lendo arquivo…';
-    const result=await read(id==='xml'||id==='receipt-folder'?event.target.files:file);
+    const result=await read(id==='xml'?event.target.files:file);
     if(typeof result==='string'){
      try { receiptDialog(await importFiscalURL(result)); return; } catch {}
      const link=Object.assign(document.createElement('a'),{href:result,target:'_blank',rel:'noopener noreferrer',textContent:'Abrir portal fiscal'});
