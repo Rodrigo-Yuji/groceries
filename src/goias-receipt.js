@@ -11,7 +11,7 @@ export function readGoiásLines(text){
   const price=brazilianNumber(priceText);
   const total=brazilianNumber(totalText);
   if(!(quantity>0)||!Number.isFinite(price))return [];
-  return [{name:name.trim(),quantity,unit,price:Number.isFinite(total)?total/quantity:price,discount:0}];
+  return [{name:name.trim(),quantity,unit,price:Number.isFinite(total)?total/quantity:price,originalPrice:price,discount:0}];
  });
 }
 

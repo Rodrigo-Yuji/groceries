@@ -26,8 +26,52 @@ function fiscalUnit(value){
  const unit=value.toLowerCase().trim();
  return ({kg:'kg',g:'g',l:'L',ml:'ml',pc:'pacote',pct:'pacote',cx:'caixa'})[unit]||'un';
 }
+function readDetailedReceipt(document){
+ const amount=text=>{
+  const value=String(text||'').trim();
+  return /^\d+(?:\.\d{3})*(?:,\d+)?$/.test(value)?number(value.replaceAll('.','')):NaN;
+ };
+ const field=(rows,pattern)=>{
+  for(const row of rows){
+   for(const [index,cell] of [...row.cells].entries()){
+    const label=[...cell.querySelectorAll('label,strong,b')].find(node=>pattern.test(node.textContent.trim()));
+    if(label)return cell.textContent.slice(cell.textContent.indexOf(label.textContent)+label.textContent.length).trim()||row.nextElementSibling?.cells?.[index]?.textContent.trim();
+    if(pattern.test(cell.textContent.trim()))return row.nextElementSibling?.cells?.[index]?.textContent.trim();
+   }
+  }
+ };
+ const detail=[...document.querySelectorAll('tr')].filter(row=>row.cells.length>=5&&row.cells.length<=7);
+ const header=detail.find(row=>/descri[cç][aã]o/i.test(row.textContent)&&/unidade comercial/i.test(row.textContent)&&/qtd/i.test(row.textContent));
+ if(!header)return null;
+ const candidates=[...header.closest('table').querySelectorAll('tr')];
+ const lines=[];
+ for(let index=0;index<candidates.length;index++){
+  const cell=[...candidates[index].cells].map(value=>value.textContent.trim());
+  const offset=cell.length===6?1:0;
+  const [lineNumber,name,qty,unit,value]=cell.slice(offset,offset+5);
+  const quantity=amount(qty),gross=amount(value);
+  if(!/^\d+$/.test(lineNumber)||!name||!(quantity>0)||!Number.isFinite(gross))continue;
+  const rows=[];
+  for(let next=index+1;next<candidates.length;next++){
+   const values=[...candidates[next].cells].map(value=>value.textContent.trim());
+   const start=values.length===6?1:0;
+   if(/^\d+$/.test(values[start])&&amount(values[start+2])>0&&Number.isFinite(amount(values[start+4])))break;
+   rows.push(candidates[next]);
+  }
+  const discount=amount(field(rows,/^valor do desconto$/i));
+  const originalPrice=amount(field(rows,/^valor unit[aá]rio de comercializa[cç][aã]o$/i));
+  lines.push({name,quantity,unit:fiscalUnit(unit),price:gross/quantity,originalPrice:Number.isFinite(originalPrice)?originalPrice:gross/quantity,discount:Number.isFinite(discount)?discount:0});
+ }
+ if(!lines.length)return null;
+ const all=[...document.querySelectorAll('tr')];
+ const fiscalKey=field(all,/^chave de acesso$/i)?.replace(/\D/g,'');
+ const market=field(all,/^raz[aã]o social$/i)||'';
+ return {lines,market,key:fiscalKey?.length===44?fiscalKey:undefined};
+}
 export function readPortalHTML(html){
  const document=new DOMParser().parseFromString(html,'text/html');
+ const detailed=readDetailedReceipt(document);
+ if(detailed)return detailed;
  let lines=[...document.querySelectorAll('#tabResult tr')].flatMap(row=>{
   const field=selector=>row.querySelector(selector)?.textContent.trim()||'';
   const name=field('.txtTit');
