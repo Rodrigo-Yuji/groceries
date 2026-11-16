@@ -1,9 +1,10 @@
+import {readGoiásLines,receiptAmount} from './goias-receipt.js';
 import {parseReceipt,number} from './domain.js';
 export async function readImage(file,onProgress){
  if(file.size>20*1024*1024)throw Error('Escolha uma imagem de até 20 MB.');
  const {createWorker}=await import('tesseract.js');
  const worker=await createWorker('por',1,{logger:m=>{if(m.status==='recognizing text')onProgress(Math.round(m.progress*100));}});
- try{const {data}=await worker.recognize(file);return {text:data.text,lines:parseReceipt(data.text)};}finally{await worker.terminate();}
+ try{const {data}=await worker.recognize(file);const lines=readGoiásLines(data.text);return lines.length?{lines:lines.map(line=>({...line,unit:fiscalUnit(line.unit)})),expected:receiptAmount(data.text,'Valor a pagar'),discount:receiptAmount(data.text,'Descontos?')}:{text:data.text,lines:parseReceipt(data.text)};}finally{await worker.terminate();}
 }
 export function readXML(text){
  const doc=new DOMParser().parseFromString(text,'application/xml');
@@ -27,7 +28,7 @@ function fiscalUnit(value){
 }
 export function readPortalHTML(html){
  const document=new DOMParser().parseFromString(html,'text/html');
- const lines=[...document.querySelectorAll('#tabResult tr')].flatMap(row=>{
+ let lines=[...document.querySelectorAll('#tabResult tr')].flatMap(row=>{
   const field=selector=>row.querySelector(selector)?.textContent.trim()||'';
   const name=field('.txtTit');
   const numeric=selector=>{
@@ -38,7 +39,27 @@ export function readPortalHTML(html){
   if(!name||!(quantity>0)||!(price>=0))return [];
   return [{name,quantity,price,unit:fiscalUnit(field('.RUN').split(':').pop()),discount:Number.isFinite(total)?Math.max(0,Math.round((quantity*price-total)*100)/100):0}];
  });
- if(!lines.length)throw Error('Nenhuma linha fiscal compatível encontrada no HTML salvo.');
+ if(!lines.length){
+  const frame=document.querySelector('iframe.iframe-danfe-nfce');
+  const embedded=frame?.getAttribute('srcdoc');
+  if(embedded)return readPortalHTML(embedded);
+  const rows=[...document.querySelectorAll('tr,li,article,div')].flatMap(element=>{
+   if([...element.children].some(child=>/Qtde\.?\s*:/i.test(child.textContent)&&/C[oó]digo\s*:/i.test(child.textContent)))return [];
+   const walker=document.createTreeWalker(element,4);
+   const parts=[];
+   while(walker.nextNode())parts.push(walker.currentNode.textContent);
+   const text=parts.join(' ').replace(/\s+/g,' ').trim();
+   if(!/C[oó]digo\s*:.*Qtde\.?\s*:/i.test(text))return [];
+   return readGoiásLines(text);
+  });
+  if(rows.length){
+   const text=document.body.textContent.replace(/\s+/g,' ');
+   const market=document.querySelector('#u20,.txtTopo')?.textContent.trim()||'';
+   return {lines:rows.map(line=>({...line,unit:fiscalUnit(line.unit)})),market,expected:receiptAmount(text,'Valor a pagar'),discount:receiptAmount(text,'Descontos?')};
+  }
+  if(frame||document.querySelector('#danfe-nfce-container'))throw Error('Este HTML de Goiás contém apenas a página externa ou um DANFE carregado por script. Abra a área dos produtos em uma aba própria e salve essa página. Você também pode importar um print em Foto para OCR.');
+  throw Error('Nenhuma linha fiscal compatível encontrada. Salve a página que mostra os produtos, ou importe um print em Foto para OCR.');
+ }
  const key=document.querySelector('.chave')?.textContent.replace(/\D/g,'');
  const formatted=document.body.textContent.match(/(?:Emissão|Emiss[aã]o)\s*:?\s*(\d{2})\/(\d{2})\/(\d{4})/i);
  const total=[...document.querySelectorAll('#linhaTotal')].find(row=>/valor a pagar|valor total/i.test(row.textContent))?.querySelector('.totalNumb')?.textContent;

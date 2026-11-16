@@ -266,7 +266,7 @@ function conflictDialog() {
  }
 }
 function receiptDialog(draft={lines:[],market:'',date:today()}) {
- showModal('Revisar cupom', `<div class="form-row"><label>Foto para OCR<input type="file" id="ocr" accept="image/*" capture="environment"></label><label>Imagem com QR Code<input type="file" id="qr" accept="image/*"></label><label>XML fiscal ou página HTML salva<input type="file" id="xml" accept=".xml,.html,.htm,application/xml,text/xml,text/html"></label></div><p id="receipt-status" role="status"></p><form id="receipt-form"><div class="form-row"><label>Mercado<input name="market" value="${esc(draft.market)}" required></label><label>Data<input name="date" type="date" value="${esc(draft.date||today())}" required></label></div><label>Total do cupom (R$)<input name="expected" type="number" min="0" step=".01" value="${esc(draft.expected)}"></label><datalist id="receipt-products">${records('product').map(p=>`<option value="${esc(p.name)}"></option>`).join('')}</datalist><div id="receipt-lines"></div><button class="secondary" id="add-line" type="button">Adicionar linha</button><output id="receipt-total"></output><button class="primary">Salvar compra revisada</button></form>`,true);
+ showModal('Revisar cupom', `<div class="form-row"><label>Foto para OCR<input type="file" id="ocr" accept="image/*" capture="environment"></label><label>Imagem com QR Code<input type="file" id="qr" accept="image/*"></label><label>XML fiscal ou página HTML salva<input type="file" id="xml" accept=".xml,.html,.htm,application/xml,text/xml,text/html"></label></div><p id="receipt-status" role="status"></p><form id="receipt-form"><div class="form-row"><label>Mercado<input name="market" value="${esc(draft.market)}" required></label><label>Data<input name="date" type="date" value="${esc(draft.date||today())}" required></label></div><label>Total do cupom (R$)<input name="expected" type="number" min="0" step=".01" value="${esc(draft.expected)}"></label><label>Desconto geral do cupom (R$)<input name="receiptDiscount" type="number" min="0" step=".01" value="${esc(draft.discount??0)}"></label><datalist id="receipt-products">${records('product').map(p=>`<option value="${esc(p.name)}"></option>`).join('')}</datalist><div id="receipt-lines"></div><button class="secondary" id="add-line" type="button">Adicionar linha</button><output id="receipt-total"></output><button class="primary">Salvar compra revisada</button></form>`,true);
  const form = $('#receipt-form');
  function lines() {
   return [...form.querySelectorAll('fieldset')].map(row=>{
@@ -276,7 +276,7 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
   });
  }
  function totals() {
-  const total=lines().reduce((sum,line)=>sum+line.total,0), expected=form.elements.expected.value;
+  const total=lines().reduce((sum,line)=>sum+line.total,0)-number(form.elements.receiptDiscount.value), expected=form.elements.expected.value;
   $('#receipt-total').textContent=`Soma das linhas: ${money(total)}${expected!=='' && Math.abs(number(expected)-total)>=.01 ? ' · Divergência de '+money(Math.abs(number(expected)-total)) : ''}`;
  }
  function add(line={}) {
@@ -318,9 +318,20 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
   if(!market||!entries.length||entries.some(line=>!line.name||line.total<0)){status.textContent='Confira o mercado, os produtos e os descontos.';return;}
   const fingerprint=receiptFingerprint(entries.map(line=>({...line,price:line.total})),market,date);
   if(records('purchase').some(row=>row.fingerprint===fingerprint || (draft.key&&row.receiptKey===draft.key))){status.textContent='Este cupom já aparece no histórico.';return;}
+  const receiptDiscount=number(form.elements.receiptDiscount.value);
+  const subtotal=entries.reduce((sum,line)=>sum+line.total,0);
+  if(receiptDiscount<0||receiptDiscount>subtotal){status.textContent='O desconto geral não pode exceder a soma dos itens.';return;}
   const expected=form.elements.expected.value;
-  if(expected!==''&&Math.abs(number(expected)-entries.reduce((sum,line)=>sum+line.total,0))>=.01&&!window.confirm('A soma diverge do total do cupom. Salvar assim mesmo?'))return;
+  if(expected!==''&&Math.abs(number(expected)-(subtotal-receiptDiscount))>=.01&&!window.confirm('A soma diverge do total do cupom. Salvar assim mesmo?'))return;
   batch(()=>{
+  let allocated=0;
+  for(const [index,line] of entries.entries()){
+   const next=index===entries.length-1?receiptDiscount:Math.round((allocated+(subtotal?receiptDiscount*line.total/subtotal:0))*100)/100;
+   const discount=Math.min(line.total,Math.max(0,next-allocated));
+   line.discount=Math.round((line.discount+discount)*100)/100;
+   line.total=Math.round((line.total-discount)*100)/100;
+   allocated+=discount;
+  }
   const pending=records('item');
   for(const line of entries){
    const product=records('product').find(row=>normalize(row.name)===normalize(line.name));
