@@ -306,9 +306,7 @@ fieldset{border:1px solid var(--border);border-radius:10px;min-width:0}
 .receipt-request{margin-top:7px}
 .receipt-link-status{color:var(--jade);font-size:.8rem}
 .receipt-link-status:empty{display:none}
-#request-generic{justify-self:start;text-align:left;padding-inline:8px}
-#request-generic[hidden],.receipt-review[hidden]{display:none}
-#request-generic[aria-pressed=true]{background:#e1efda;border-color:#87a585;color:var(--jade)}
+.receipt-review[hidden]{display:none}
 .receipt-review{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:#edf4e9;border-radius:9px;padding:8px 10px;font-size:.84rem}
 .item-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 10px;margin:2px 0;padding:8px 10px;background:#edf4e9;border-radius:8px}
 .item-facts dt{font-size:.72rem;color:var(--muted)}

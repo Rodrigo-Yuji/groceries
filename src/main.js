@@ -119,13 +119,6 @@ function selectCatalogMode(){
  catalogSelected.clear();
  app();
 }
-function resolveCatalogProduct(name){
- const key=normalize(name);
- const catalog=records('product');
- const alias=records('alias').find(row=>row.key===key);
- return catalog.find(product=>normalize(product.name)===normalize(alias?.name||name))||
-  catalog.find(product=>normalize(product.name)===key);
-}
 function changeSelectedSector(){
  const selected=records('product').filter(product=>catalogSelected.has(product.id));
  if(!selected.length)return;
@@ -462,7 +455,7 @@ function confirmRemoveItem(id){
 
 function itemDialog(item=null,product=null){
  const p=product|| (item?.productId?get(item.productId):null);const value=item||{name:p?.name||'',quantity:1,unit:p?.unit||'un',sector:p?.sector||'Sem setor',price:p?.lastPrice??null,size:p?.size||1,packUnit:p?.packUnit||'un',presentation:p?.presentation||''};
- showModal(item?'Editar item':'Adicionar à lista',`<form id="item-form"><label>Produto<input name="name" id="product-name" list="product-suggestions" value="${esc(value.name)}" placeholder="Ex.: leite integral" maxlength="120" required autocomplete="off"><datalist id="product-suggestions">${records('product').map(p=>`<option value="${esc(p.name)}">${esc(p.sector)}</option>`).join('')}</datalist></label><div id="duplicate-hint" class="field-hint"></div><div id="catalog-matches" class="catalog-matches"></div>${!item?'<button type="button" class="text-btn" id="request-generic" aria-pressed="false" hidden>Pedir sem escolher marca ou tamanho</button>':''}<div><label for="item-quantity">Quantidade</label><div class="catalog-quantity item-quantity-stepper"><button type="button" class="icon-btn" data-item-qty="-1" aria-label="Diminuir uma unidade">${icon('minus')}</button><input id="item-quantity" name="quantity" type="number" min="0.001" max="100000" step="0.001" inputmode="decimal" value="${value.quantity}" required><button type="button" class="icon-btn" data-item-qty="1" aria-label="Aumentar uma unidade">${icon('plus')}</button></div></div><dl class="item-facts"><div><dt>Setor</dt><dd id="item-sector"></dd></div><div><dt>Unidade</dt><dd id="item-unit"></dd></div><div><dt>Preço por unidade</dt><dd id="item-price"></dd></div></dl>${!item?'<label class="item-bought-now"><input type="checkbox" name="boughtNow">Já coloquei no carrinho</label>':''}<label>Observação (opcional) para quem fará as compras<input name="note" value="${esc(value.note)}" maxlength="300" placeholder="Marca preferida, substituição…"></label><p id="form-error" class="form-error" role="alert"></p><div class="modal-actions">${item?'<button type="button" class="danger-text" id="remove-item">Remover item</button>':'<button type="button" class="secondary" data-cancel>Cancelar</button>'}<button class="primary" type="submit">${icon('plus')}${item?'Salvar alterações':'Adicionar à lista'}</button></div></form>`);
+ showModal(item?'Editar item':'Adicionar à lista',`<form id="item-form"><label>Produto<input name="name" id="product-name" value="${esc(value.name)}" placeholder="Ex.: leite integral" maxlength="120" required autocomplete="off"></label><div id="duplicate-hint" class="field-hint"></div><div id="catalog-matches" class="catalog-matches"></div><div><label for="item-quantity">Quantidade</label><div class="catalog-quantity item-quantity-stepper"><button type="button" class="icon-btn" data-item-qty="-1" aria-label="Diminuir uma unidade">${icon('minus')}</button><input id="item-quantity" name="quantity" type="number" min="0.001" max="100000" step="0.001" inputmode="decimal" value="${value.quantity}" required><button type="button" class="icon-btn" data-item-qty="1" aria-label="Aumentar uma unidade">${icon('plus')}</button></div></div><dl class="item-facts"><div><dt>Setor</dt><dd id="item-sector"></dd></div><div><dt>Unidade</dt><dd id="item-unit"></dd></div><div><dt>Preço por unidade</dt><dd id="item-price"></dd></div></dl>${!item?'<label class="item-bought-now"><input type="checkbox" name="boughtNow">Já coloquei no carrinho</label>':''}<label>Observação (opcional) para quem fará as compras<input name="note" value="${esc(value.note)}" maxlength="300" placeholder="Marca preferida, substituição…"></label><p id="form-error" class="form-error" role="alert"></p><div class="modal-actions">${item?'<button type="button" class="danger-text" id="remove-item">Remover item</button>':'<button type="button" class="secondary" data-cancel>Cancelar</button>'}<button class="primary" type="submit">${icon('plus')}${item?'Salvar alterações':'Adicionar à lista'}</button></div></form>`);
  const quantity=$('#item-quantity');
  for(const button of document.querySelectorAll('[data-item-qty]')){
   button.onclick=()=>{
@@ -473,13 +466,12 @@ function itemDialog(item=null,product=null){
   };
  }
 
- let generic=Boolean(item?.generic),mergeId='';
+ let selectedProductId=p?.id,mergeId='';
  const form=$('#item-form');
  const productInput=$('#product-name');
- const genericButton=$('#request-generic');
  const updateProduct=()=>{
-  const name=productInput.value,existing=generic?null:resolveCatalogProduct(name);
-  const details=requestDetails(existing?.name||name,existing||(!generic&&name===p?.name?p:null),item);
+  const name=productInput.value,existing=selectedProductId?get(selectedProductId):null;
+  const details=requestDetails(existing?.name||name,existing,item);
   $('#item-sector').textContent=details.sector;
   $('#item-unit').textContent=details.unit;
   $('#item-price').textContent=priceLabel(details.price);
@@ -502,20 +494,14 @@ function itemDialog(item=null,product=null){
   $('#duplicate-hint').textContent=mergeId?'A quantidade será somada ao pedido escolhido.':
    exact?'Já está na lista. Ao adicionar, as quantidades serão somadas.':
    existing&&existing.name!==name?'Já cadastrado como '+existing.name:'';
-  if(genericButton){
-   genericButton.hidden=!name.trim();
-   genericButton.setAttribute('aria-pressed',String(generic));
-   genericButton.textContent=generic?'Pedido sem marca ou tamanho':'Pedir sem escolher marca ou tamanho';
-  }
-  if(generic||existing)return;
+  if(existing)return;
   for(const candidate of catalogSuggestions(name,records('product'),records('alias')).slice(0,5)){
    matches.append(createOption(candidate.name,()=>{
-    mergeId='';generic=false;productInput.value=candidate.name;updateProduct();
+    mergeId='';selectedProductId=candidate.id;productInput.value=candidate.name;updateProduct();
    }));
   }
  };
- productInput.oninput=()=>{generic=false;mergeId='';updateProduct();};
- if(genericButton)genericButton.onclick=()=>{generic=!generic;mergeId='';updateProduct();};
+ productInput.oninput=()=>{selectedProductId=undefined;mergeId='';updateProduct();};
  updateProduct();
  $('[data-cancel]')?.addEventListener('click',closeModal);
  $('#remove-item')?.addEventListener('click',()=>confirmRemoveItem(item.id));
@@ -525,7 +511,7 @@ function itemDialog(item=null,product=null){
   const qty=number(f.quantity);
   const typed=f.name.trim();
   if(!typed||!(qty>0&&qty<=100000))return;
-  const existing=generic?null:resolveCatalogProduct(typed),name=existing?.name||typed;
+  const existing=selectedProductId?get(selectedProductId):null,name=existing?.name||typed;
   const details=requestDetails(name,existing,item);
   const sameProduct=row=>existing?row.productId===existing.id:!row.productId;
   const matches=records('item').filter(row=>row.id!==item?.id&&sameProduct(row));
