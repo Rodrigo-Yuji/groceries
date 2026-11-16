@@ -41,6 +41,7 @@ test('leva um produto avulso marcado como comprado ao histórico sem exigir vín
  assert.equal(marked.bought,2);
  const {purchase,remaining}=finishPurchase([marked],'Mercado','2026-11-16');
  assert.equal(purchase.lines[0].name,draft.name);
+ assert.equal(purchase.lines[0].adHoc,true);
  assert.equal(purchase.total,11.98);
  assert.deepEqual(remaining,[]);
 });

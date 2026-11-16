@@ -6,7 +6,7 @@ import {purchasePrices,latestCatalogPrice,discountPerUnit,priceSeries,sectorChan
 import {suggestReceiptNames,marketName,marketAliasKey,originalMarket} from './receipt-names.js';
 import {appURL,invitationURL,pendingInvitation,clearInvitation,authMessage,changePassword} from './account.js';
 import {createIcons,icons} from 'lucide';
-import {normalize,money,number,suggestSector,purchaseItem,finishPurchase,unitPrice,parseReceipt,receiptFingerprint,originalPrice,comparePackages} from './domain.js';
+import {normalize,money,number,suggestSector,purchaseItem,finishPurchase,unitPrice,parseReceipt,receiptFingerprint,originalPrice,comparePackages,isAdHocRequest} from './domain.js';
 import {state,session,supabase,records,get,put,remove,sectors,setSectors,persist,onChange,initialize,createHouse,joinHouse,logout,sync,batch,resolveConflict,listHouses,connectHousehold,manageHouse,saveDisplayName} from './store.js';
 import {readImage,readQR,readReceiptFiles,importFiscalURL} from './receipt.js';
 const $=s=>document.querySelector(s);
@@ -900,7 +900,8 @@ function receiptDialog(draft={lines:[],market:'',date:today()}) {
    delete line.requestId;
    delete line.receiptOrder;
    const sector=product?.sector||item?.sector||suggestSector(line.name,sectors());
-   line.productId=put('product',{...product,name:line.name,unit:line.unit,sector,...(line.size?{size:line.size,packUnit:line.packUnit}:{}),lastPrice:line.total/line.quantity});
+   if(isAdHocRequest(item)){line.adHoc=true;}
+   else line.productId=put('product',{...product,name:line.name,unit:line.unit,sector,...(line.size?{size:line.size,packUnit:line.packUnit}:{}),lastPrice:line.total/line.quantity});
    line.sector=sector;
    line.price=line.total/line.quantity;
    if(item){

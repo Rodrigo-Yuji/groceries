@@ -2,7 +2,7 @@ import {distinctPriceLines,normalize,originalPrice} from './domain.js';
 import {readPackage} from './receipt-names.js';
 
 export function purchasePrices(purchases){
- return purchases.flatMap((purchase,index)=>distinctPriceLines(purchase.lines).map(line=>({
+ return purchases.flatMap((purchase,index)=>distinctPriceLines(purchase.lines.filter(line=>!line.adHoc&&!(line.generic&&!line.productId))).map(line=>({
   ...line,market:purchase.market,date:purchase.date,order:purchase.createdAt??index,purchaseId:purchase.id??index
  }))).sort((a,b)=>b.date.localeCompare(a.date)||b.order-a.order);
 }

@@ -87,3 +87,10 @@ test('filtra produtos que subiram e caíram e ordena valores nos dois sentidos',
  assert.deepEqual(filterAndSortPrices(series,'all',{key:'latest',direction:'ascending'}),[unknown,down,up]);
  assert.deepEqual(filterAndSortPrices(series,'all',{key:'change',direction:'descending'}),[up,down,unknown]);
 });
+
+test('exclui preços avulsos sem alterar os itens originais da compra',()=>{
+ const lines=[{...line,price:5,adHoc:true},{...line,price:8}];
+ const purchases=[{market:'Mercado',date:'2026-11-16',lines}];
+ assert.deepEqual(purchasePrices(purchases).map(entry=>entry.price),[8]);
+ assert.equal(purchases[0].lines.length,2);
+});
