@@ -40,11 +40,12 @@ function renderList(){
 }
 function sectorIcon(s){return ({Hortifruti:'carrot',Padaria:'croissant',Laticínios:'milk','Carnes e ovos':'egg',Mercearia:'wheat',Bebidas:'cup-soda',Limpeza:'spray-can',Higiene:'bath'})[s]||'package';}
 function renderItem(i){const done=i.bought>=i.quantity;return `<article class="item ${done?'done':''}"><button class="check-item ${done?'checked':i.bought>0?'partial':''}" data-check="${i.id}" aria-label="${done?'Desmarcar':'Marcar compra de'} ${esc(i.name)}">${i.bought>0?icon(done?'check':'minus'):''}</button><div class="item-main"><button class="item-name" data-edit="${i.id}">${esc(i.name)}</button>${state.shopping&&i.createdAt>state.lastSeen&&(i.requesterId ? i.requesterId!==session.user?.id : i.requester!==state.name)?'<span class="new-tag">Novo</span>':''}<div class="item-meta"><span>${i.quantity} ${esc(i.unit||'un')}${i.bought>0&&!done?` · ${i.bought} comprado(s)`:''}</span>${i.note?`<span class="note">${esc(i.note)}</span>`:''}<span class="requester">${esc(i.requester||'Você')}</span></div></div><div class="item-price">${i.price!=null?money(i.price):'<span>Sem preço</span>'}<small>${i.price!=null?'por '+esc(i.unit||'un'):''}</small></div><button class="icon-btn more" data-edit="${i.id}" aria-label="Editar ${esc(i.name)}">${icon('ellipsis')}</button></article>`;}
+const catalogDrafts=new Map();
 function renderProducts(){
  const catalog=records('product');
  const products=catalog.filter(product=>normalize(product.name+' '+product.sector).includes(normalize(search)))
   .sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
- return `<div class="panel"><div class="panel-toolbar"><h2>Seu catálogo <span class="badge">${catalog.length}</span></h2><label class="search">${icon('search')}<input id="search" type="search" value="${esc(search)}" placeholder="Buscar produto" aria-label="Buscar produto"></label></div>${products.length?`<ul class="catalog-list">${products.map(product=>`<li class="catalog-row"><span class="catalog-icon" aria-hidden="true">${icon(sectorIcon(product.sector))}</span><div class="catalog-name"><strong>${esc(product.name)}</strong><small>${esc(product.sector||'Sem setor')}</small></div><span class="catalog-price">${priceLabel(product.lastPrice)}</span><div class="catalog-actions"><button class="icon-btn" data-add-product="${product.id}" aria-label="Adicionar ${esc(product.name)} à lista" title="Adicionar à lista">${icon('plus')}</button><button class="icon-btn" data-product-edit="${product.id}" aria-label="Editar ${esc(product.name)}" title="Editar produto">${icon('pencil')}</button></div></li>`).join('')}</ul>`:catalog.length?empty('Nenhum produto encontrado','Tente buscar por outro nome ou setor.'):empty('Seu catálogo está vazio','Adicione um produto para reutilizá-lo nas próximas compras.',button('Cadastrar produto','product','plus'))}</div>`;
+ return `<div class="panel"><div class="panel-toolbar"><h2>Seu catálogo <span class="badge">${catalog.length}</span></h2><label class="search">${icon('search')}<input id="search" type="search" value="${esc(search)}" placeholder="Buscar produto" aria-label="Buscar produto"></label></div>${products.length?`<ul class="catalog-list">${products.map(product=>`<li class="catalog-row"><span class="catalog-icon" aria-hidden="true">${icon(sectorIcon(product.sector))}</span><div class="catalog-name"><strong>${esc(product.name)}</strong><small>${esc(product.sector||'Sem setor')}</small></div><span class="catalog-price">${priceLabel(product.lastPrice)}</span><form class="catalog-add" data-catalog-add="${product.id}"><div class="catalog-quantity"><button type="button" class="icon-btn" data-qty="-1" aria-label="Diminuir quantidade de ${esc(product.name)}">${icon('minus')}</button><input name="quantity" type="number" min=".001" max="100000" step="any" inputmode="decimal" required value="${esc(catalogDrafts.get(product.id)?.quantity??1)}" aria-label="Quantidade de ${esc(product.name)}"><button type="button" class="icon-btn" data-qty="1" aria-label="Aumentar quantidade de ${esc(product.name)}">${icon('plus')}</button></div><input name="note" class="catalog-note" value="${esc(catalogDrafts.get(product.id)?.note)}" placeholder="Observação" maxlength="300" aria-label="Observação para ${esc(product.name)}"><button class="primary catalog-submit" type="submit" aria-label="Adicionar ${esc(product.name)} à lista">${icon('plus')}<span>À lista</span></button></form><button class="icon-btn catalog-edit" data-product-edit="${product.id}" aria-label="Editar ${esc(product.name)}" title="Editar produto">${icon('pencil')}</button></li>`).join('')}</ul>`:catalog.length?empty('Nenhum produto encontrado','Tente buscar por outro nome ou setor.'):empty('Seu catálogo está vazio','Adicione um produto para reutilizá-lo nas próximas compras.',button('Cadastrar produto','product','plus'))}</div>`;
 }
 function renderHistory(){const purchases=records('purchase').sort((a,b)=>b.date.localeCompare(a.date));return `<div class="panel"><div class="panel-toolbar"><h2>Compras finalizadas <span class="badge">${purchases.length}</span></h2><span class="muted">Total registrado: ${money(purchases.reduce((s,p)=>s+p.total,0))}</span></div>${purchases.length?purchases.map(p=>`<button class="purchase-row" data-purchase="${p.id}"><span class="purchase-icon">${icon('store')}</span><span class="purchase-info"><strong>${esc(p.market)}</strong><small>${dateLabel(p.date)} · ${p.lines.length} produtos</small></span><strong>${money(p.total)}</strong>${icon('chevron-right')}</button>`).join(''):empty('Cada compra tem sua história','Finalize uma compra ou importe um cupom para começar seu histórico.',button('Ler cupom','receipt','scan-line'))}</div>`;}
 function priceEntries(){return records('purchase').flatMap(p=>p.lines.map(l=>({...l,market:p.market,date:p.date}))).sort((a,b)=>b.date.localeCompare(a.date));}
@@ -58,7 +59,7 @@ function bind(){
  $('#search')?.addEventListener('input',e=>{search=e.target.value;app();$('#search').focus();});
  document.querySelectorAll('[data-check]').forEach(el=>el.onclick=()=>{const i=get(el.dataset.check);if(i.bought>0){const old={...i};put('item',{...i,bought:0,paidPrice:undefined});toast('Produto desmarcado.',()=>put('item',old));}else buyDialog(i);});
  document.querySelectorAll('[data-edit]').forEach(el=>el.onclick=()=>itemDialog(get(el.dataset.edit)));
- document.querySelectorAll('[data-add-product]').forEach(el=>el.onclick=()=>itemDialog(null,get(el.dataset.addProduct)));
+ bindCatalogForms();
  document.querySelectorAll('[data-product-edit]').forEach(el=>el.onclick=()=>productDialog(get(el.dataset.productEdit)));
  document.querySelectorAll('[data-purchase]').forEach(el=>el.onclick=()=>purchaseDialog(get(el.dataset.purchase)));
  $('#name-form')?.addEventListener('submit',e=>{e.preventDefault();state.name=new FormData(e.target).get('name').trim();persist();app();toast('Nome atualizado.');});
@@ -68,6 +69,39 @@ function bind(){
  $('#backup-file')?.addEventListener('change',restoreBackup);
 }
 const actions={shopping:()=>{state.shopping=!state.shopping;if(state.shopping)state.lastSeen=Date.now();persist();app();},add:()=>itemDialog(),product:()=>productDialog(),receipt:()=>receiptDialog(),finish:()=>finishDialog(),account:()=>accountDialog(),house:()=>houseDialog(),sync:()=>{if(state.household){void sync();toast('Tentando sincronizar…');}else toast('Lista salva neste aparelho. Entre na sua conta para compartilhar.');},sector:()=>sectorDialog(),install:()=>install(),export:()=>exportBackup(),conflicts:()=>conflictDialog()};
+function bindCatalogForms(){
+ document.querySelectorAll('[data-catalog-add]').forEach(form=>{
+  const id=form.dataset.catalogAdd;
+  const quantity=form.elements.quantity,note=form.elements.note;
+  const remember=()=>catalogDrafts.set(id,{quantity:quantity.value,note:note.value});
+  form.oninput=remember;
+  for(const button of form.querySelectorAll('[data-qty]')){
+   button.onclick=()=>{
+    const current=quantity.valueAsNumber;
+    const next=(Number.isFinite(current)?current:1)+Number(button.dataset.qty);
+    quantity.value=Math.min(100000,Math.max(Number.isInteger(current)?1:.001,Math.round(next*1000)/1000));
+    remember();
+   };
+  }
+  form.onsubmit=event=>{
+   event.preventDefault();
+   const product=get(id),qty=number(quantity.value),observation=note.value.trim();
+   if(!product||!(qty>0&&qty<=100000))return;
+   const unit=product.unit||'un';
+   const existing=records('item').find(item=>item.unit===unit&&normalize(item.name)===normalize(product.name));
+   const newQuantity=Math.round(((existing?.quantity||0)+qty)*1000)/1000;
+   if(newQuantity>100000){toast('A quantidade total deve ser de até 100.000.');return;}
+   catalogDrafts.delete(id);
+   if(existing){
+    const notes=[...new Set([existing.note,observation].filter(Boolean))];
+    put('item',{...existing,quantity:newQuantity,note:notes.join(' · ')});
+   }else{
+    put('item',{productId:id,name:product.name,quantity:newQuantity,bought:0,unit,sector:product.sector||'Sem setor',price:product.lastPrice??null,size:product.size||1,packUnit:product.packUnit||unit,presentation:product.presentation||'',note:observation,createdAt:Date.now(),requester:state.name||session.user?.email?.split('@')[0]||'Você'});
+   }
+   toast(existing?'Quantidade atualizada na lista.':'Produto adicionado à lista.');
+  };
+ });
+}
 function sectorOptions(selected){return [...new Set([...sectors(),selected].filter(Boolean))].map(s=>`<option ${s===selected?'selected':''}>${esc(s)}</option>`).join('');}
 function units(selected='un'){return ['un','kg','g','L','ml','pacote','caixa'].map(s=>`<option ${s===selected?'selected':''}>${s}</option>`).join('');}
 function itemDialog(item=null,product=null){
