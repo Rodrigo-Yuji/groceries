@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {purchasePrices,latestCatalogPrice,discountPerUnit,priceSeries,sectorChanges,latestByMarket,matchingPriceSeries,searchPriceSeries,priceChartTimeline} from './price-analysis.js';
+import {purchasePrices,latestCatalogPrice,discountPerUnit,priceSeries,sectorChanges,latestByMarket,matchingPriceSeries,searchPriceSeries,priceChartTimeline,filterAndSortPrices} from './price-analysis.js';
 import {suggestSector,DEFAULT_SECTORS} from './domain.js';
 
 const product={id:'aveia',name:'Aveia',sector:'Mercearia',unit:'un',size:500,packUnit:'g'};
@@ -75,4 +75,15 @@ test('agrupa gramatura no nome e no cadastro sem misturar embalagens diferentes'
  const group=groups.find(item=>item.size===400);
  assert.deepEqual(priceChartTimeline(group).map(point=>point.price),[12.89,11.89,10.59]);
  assert.equal(matchingPriceSeries(farofa,groups).length,1);
+});
+
+test('filtra produtos que subiram e caíram e ordena valores nos dois sentidos',()=>{
+ const up={name:'Café',change:10,latest:{price:15}};
+ const down={name:'Arroz',change:-5,latest:{price:12}};
+ const unknown={name:'Banana',change:null,latest:{price:5}};
+ const series=[up,unknown,down];
+ assert.deepEqual(filterAndSortPrices(series,'up',{key:'product',direction:'ascending'}),[up]);
+ assert.deepEqual(filterAndSortPrices(series,'down',{key:'product',direction:'ascending'}),[down]);
+ assert.deepEqual(filterAndSortPrices(series,'all',{key:'latest',direction:'ascending'}),[unknown,down,up]);
+ assert.deepEqual(filterAndSortPrices(series,'all',{key:'change',direction:'descending'}),[up,down,unknown]);
 });

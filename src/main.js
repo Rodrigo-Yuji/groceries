@@ -1,5 +1,5 @@
 import './style.css';
-import {purchasePrices,latestCatalogPrice,discountPerUnit,priceSeries,sectorChanges,latestByMarket,matchingPriceSeries,hasPackageSize,searchPriceSeries,priceChartTimeline} from './price-analysis.js';
+import {purchasePrices,latestCatalogPrice,discountPerUnit,priceSeries,sectorChanges,latestByMarket,matchingPriceSeries,hasPackageSize,searchPriceSeries,priceChartTimeline,filterAndSortPrices} from './price-analysis.js';
 import {suggestReceiptNames,marketName,marketAliasKey,originalMarket} from './receipt-names.js';
 import {appURL,invitationURL,pendingInvitation,clearInvitation,authMessage,changePassword} from './account.js';
 import {createIcons,icons} from 'lucide';
@@ -27,8 +27,8 @@ function button(text,action,ic,cls='primary'){return `<button class="${cls}" dat
 function empty(title,text,action){return `<div class="empty">${icon('shopping-basket')}<h3>${title}</h3><p>${text}</p>${action||''}</div>`;}
 let renderedPage,renderedSearch;
 function app(){
- const keepPriceScroll=page==='prices'&&renderedPage===page&&renderedSearch===search;
- const previousScroll=keepPriceScroll?['.price-analysis-scroll','.price-history-scroll'].map(selector=>[selector,$(selector)?.scrollTop||0,$(selector)?.scrollLeft||0]):[];
+ const keepScroll=renderedPage===page&&renderedSearch===search;
+ const previousScroll=keepScroll?['.price-analysis-scroll','.price-history-scroll','.catalog-filters'].map(selector=>[selector,$(selector)?.scrollTop||0,$(selector)?.scrollLeft||0]):[];
  renderedPage=page;renderedSearch=search;
  const field=document.activeElement?.id==='search'?document.activeElement:null;
  const selection=field?[field.selectionStart,field.selectionEnd,field.selectionDirection]:null;
@@ -86,7 +86,7 @@ function shoppingMarketPrices(comparisons){
 
 function renderItem(i,comparisons){const done=i.bought>=i.quantity;return `<article class="item ${done?'done':''}"><button class="check-item ${done?'checked':i.bought>0?'partial':''}" data-check="${i.id}" aria-label="${done?'Desmarcar':'Marcar compra de'} ${esc(i.name)}">${i.bought>0?icon(done?'check':'minus'):''}</button><div class="item-main"><button class="item-name" data-edit="${i.id}">${esc(i.name)}</button>${state.shopping&&i.createdAt>state.lastSeen&&(i.requesterId ? i.requesterId!==session.user?.id : i.requester!==state.name)?'<span class="new-tag">Novo</span>':''}<div class="item-meta"><span>${i.quantity} ${esc(i.unit||'un')}${i.bought>0&&!done?` · ${i.bought} comprado(s)`:''}</span>${i.note||i.quickNote?`<span class="note">${esc([i.note,i.quickNote].filter(Boolean).join(' · '))}</span>`:''}<span class="requester">${esc(i.requester||'Você')}</span></div>${shoppingMarketPrices(comparisons)}</div><div class="item-price">${i.price!=null?money(i.price):'<span>Sem preço</span>'}<small>${i.price!=null?'por '+esc(i.unit||'un'):''}</small></div><button class="icon-btn more" data-edit="${i.id}" aria-label="Editar ${esc(i.name)}">${icon('ellipsis')}</button></article>`;}
 const catalogDrafts=new Map();
-let catalogSelecting=false;
+let catalogSelecting=false,catalogSector=null;
 const catalogSelected=new Set();
 function selectCatalogMode(){
  catalogSelecting=!catalogSelecting;
@@ -167,13 +167,29 @@ function mergeCatalogProducts(){
 
 function renderProducts(){
  const catalog=records('product'),prices=priceEntries();
- const products=catalog.filter(product=>normalize(product.name+' '+product.sector).includes(normalize(search)))
+ if(catalogSector&&!sectors().includes(catalogSector))catalogSector=null;
+ const products=catalog.filter(product=>(!catalogSector||(product.sector||'Sem setor')===catalogSector)&&normalize(product.name+' '+product.sector).includes(normalize(search)))
   .sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
- return `<div class="panel"><div class="panel-toolbar"><h2>Seu catálogo <span class="badge">${catalog.length}</span></h2><label class="search">${icon('search')}<input id="search" type="text" inputmode="search" role="searchbox" value="${esc(search)}" placeholder="Buscar produto" aria-label="Buscar produto"></label></div>${catalogSelecting?`<div class="catalog-selection"><span>${catalogSelected.size} selecionado(s)</span><div class="catalog-selection-actions"><button class="secondary" data-action="catalog-sector" ${catalogSelected.size===0?'disabled':''}>Alterar setor</button><button class="primary" data-action="catalog-merge" ${catalogSelected.size<2?'disabled':''}>Unificar produtos</button></div></div>`:''}${products.length?`<ul class="catalog-list">${products.map(product=>{const latest=latestCatalogPrice(product,prices);return `<li class="catalog-row ${catalogSelecting?'catalog-selecting':''}">${catalogSelecting?`<input type="checkbox" data-catalog-choice="${product.id}" aria-label="Selecionar ${esc(product.name)}" ${catalogSelected.has(product.id)?'checked':''}>`:`<span class="catalog-icon" aria-hidden="true">${icon(sectorIcon(product.sector))}</span>`}<div class="catalog-name"><strong>${esc(product.name)}</strong><small>${esc(product.sector||'Sem setor')}</small></div><div class="catalog-price"><strong>${priceLabel(latest?.price??product.lastPrice)}</strong>${latest?`<small>${discountPerUnit(latest)>0?'Desconto '+money(discountPerUnit(latest)):'Sem desconto'}</small>${priceLabel(originalPrice(latest))!==priceLabel(latest.price)?`<small>Original ${priceLabel(originalPrice(latest))}</small>`:''}<small>${esc(latest.market)}</small>`:''}</div>${catalogSelecting?'':`<form class="catalog-add" data-catalog-add="${product.id}"><div class="catalog-quantity"><button type="button" class="icon-btn" data-qty="-1" aria-label="Diminuir quantidade de ${esc(product.name)}">${icon('minus')}</button><input name="quantity" type="number" min=".001" max="100000" step="any" inputmode="decimal" required value="${esc(catalogDrafts.get(product.id)?.quantity??1)}" aria-label="Quantidade de ${esc(product.name)}"><button type="button" class="icon-btn" data-qty="1" aria-label="Aumentar quantidade de ${esc(product.name)}">${icon('plus')}</button></div><input name="note" class="catalog-note" value="${esc(catalogDrafts.get(product.id)?.note)}" placeholder="Observação" maxlength="300" aria-label="Observação para ${esc(product.name)}"><button class="primary catalog-submit" type="submit" aria-label="Adicionar ${esc(product.name)} à lista">${icon('plus')}<span>À lista</span></button></form><button class="icon-btn catalog-edit" data-product-edit="${product.id}" aria-label="Editar ${esc(product.name)}" title="Editar produto">${icon('pencil')}</button>`}</li>`;}).join('')}</ul>`:catalog.length?empty('Nenhum produto encontrado','Tente buscar por outro nome ou setor.'):empty('Seu catálogo está vazio','Adicione um produto para reutilizá-lo nas próximas compras.',button('Cadastrar produto','product','plus'))}</div>`;
+ return `<div class="panel"><div class="panel-toolbar"><h2>Seu catálogo <span class="badge">${catalog.length}</span></h2><label class="search">${icon('search')}<input id="search" type="text" inputmode="search" role="searchbox" value="${esc(search)}" placeholder="Buscar produto" aria-label="Buscar produto"></label></div><div class="catalog-filters" role="group" aria-label="Filtrar produtos por setor"><button class="secondary" data-sector-filter="" aria-pressed="${catalogSector===null}">Todos</button>${sectors().map(sector=>`<button class="secondary" data-sector-filter="${esc(sector)}" aria-pressed="${catalogSector===sector}">${esc(sector)}</button>`).join('')}</div>${catalogSelecting?`<div class="catalog-selection"><span>${catalogSelected.size} selecionado(s)</span><div class="catalog-selection-actions"><button class="secondary" data-action="catalog-sector" ${catalogSelected.size===0?'disabled':''}>Alterar setor</button><button class="primary" data-action="catalog-merge" ${catalogSelected.size<2?'disabled':''}>Unificar produtos</button></div></div>`:''}${products.length?`<ul class="catalog-list">${products.map(product=>{const latest=latestCatalogPrice(product,prices);return `<li class="catalog-row ${catalogSelecting?'catalog-selecting':''}">${catalogSelecting?`<input type="checkbox" data-catalog-choice="${product.id}" aria-label="Selecionar ${esc(product.name)}" ${catalogSelected.has(product.id)?'checked':''}>`:`<span class="catalog-icon" aria-hidden="true">${icon(sectorIcon(product.sector))}</span>`}<div class="catalog-name"><strong>${esc(product.name)}</strong><small>${esc(product.sector||'Sem setor')}</small></div><div class="catalog-price"><strong>${priceLabel(latest?.price??product.lastPrice)}</strong>${latest?`<small>${discountPerUnit(latest)>0?'Desconto '+money(discountPerUnit(latest)):'Sem desconto'}</small>${priceLabel(originalPrice(latest))!==priceLabel(latest.price)?`<small>Original ${priceLabel(originalPrice(latest))}</small>`:''}<small>${esc(latest.market)}</small>`:''}</div>${catalogSelecting?'':`<form class="catalog-add" data-catalog-add="${product.id}"><div class="catalog-quantity"><button type="button" class="icon-btn" data-qty="-1" aria-label="Diminuir quantidade de ${esc(product.name)}">${icon('minus')}</button><input name="quantity" type="number" min=".001" max="100000" step="any" inputmode="decimal" required value="${esc(catalogDrafts.get(product.id)?.quantity??1)}" aria-label="Quantidade de ${esc(product.name)}"><button type="button" class="icon-btn" data-qty="1" aria-label="Aumentar quantidade de ${esc(product.name)}">${icon('plus')}</button></div><input name="note" class="catalog-note" value="${esc(catalogDrafts.get(product.id)?.note)}" placeholder="Observação" maxlength="300" aria-label="Observação para ${esc(product.name)}"><button class="primary catalog-submit" type="submit" aria-label="Adicionar ${esc(product.name)} à lista">${icon('plus')}<span>À lista</span></button></form><button class="icon-btn catalog-edit" data-product-edit="${product.id}" aria-label="Editar ${esc(product.name)}" title="Editar produto">${icon('pencil')}</button>`}</li>`;}).join('')}</ul>`:catalog.length?empty('Nenhum produto encontrado','Tente buscar por outro nome ou setor.'):empty('Seu catálogo está vazio','Adicione um produto para reutilizá-lo nas próximas compras.',button('Cadastrar produto','product','plus'))}</div>`;
 }
 function renderHistory(){const purchases=records('purchase').sort((a,b)=>b.date.localeCompare(a.date));return `<div class="panel"><div class="panel-toolbar"><h2>Compras finalizadas <span class="badge">${purchases.length}</span></h2><span class="muted">Total registrado: ${money(purchases.reduce((s,p)=>s+p.total,0))}</span></div>${purchases.length?purchases.map(p=>`<button class="purchase-row" data-purchase="${p.id}"><span class="purchase-icon">${icon('store')}</span><span class="purchase-info"><strong>${esc(p.market)}</strong><small>${dateLabel(p.date)} · ${p.lines.length} produtos</small></span><strong>${money(p.total)}</strong>${icon('chevron-right')}</button>`).join(''):empty('Cada compra tem sua história','Finalize uma compra ou importe um cupom para começar seu histórico.',button('Ler cupom','receipt','scan-line'))}</div>`;}
 function priceEntries(){return purchasePrices(records('purchase'));}
-let priceHistoryOpen=false;
+let priceHistoryOpen=false,priceTrend='all';
+let priceSort={key:'product',direction:'ascending'};
+const priceSortOptions=[['product','Produto'],['latest','Último preço pago'],['change','Variação'],['market','Melhor mercado']];
+function mobilePriceSort(){
+ return `<div class="price-sort-mobile"><label>Ordenar por <select id="price-sort-mobile">${priceSortOptions.map(([key,label])=>`<option value="${key}" ${priceSort.key===key?'selected':''}>${label}</option>`).join('')}</select></label><button class="secondary" id="price-sort-direction">${icon(priceSort.direction==='ascending'?'arrow-up':'arrow-down')}${priceSort.direction==='ascending'?'Crescente':'Decrescente'}</button></div>`;
+}
+function sortHeading(key,label){
+ const active=priceSort.key===key;
+ const direction=active?priceSort.direction:'none';
+ const glyph=active?(direction==='ascending'?'arrow-up':'arrow-down'):'arrow-up-down';
+ return '<th aria-sort="'+direction+'"><button type="button" class="price-sort" data-price-sort="'+key+'">'+label+icon(glyph)+'</button></th>';
+}
+function resetPriceTableScroll(){
+ const table=$('.price-analysis-scroll');
+ if(table)table.scrollTop=0;
+}
 const percent=value=>new Intl.NumberFormat('pt-BR',{style:'percent',maximumFractionDigits:1,signDisplay:'exceptZero'}).format(value/100);
 const trendClass=value=>value>0?'trend-up':value<0?'trend-down':'muted';
 function presentationOf(line){
@@ -182,9 +198,10 @@ function presentationOf(line){
 function visiblePriceSeries(){return searchPriceSeries(priceSeries(priceEntries(),records('product'),sectors()),search);}
 function renderPrices(){
  const lines=priceEntries().filter(line=>normalize(line.name+' '+line.market).includes(normalize(search)));
- const series=visiblePriceSeries();
- const changes=sectorChanges(series,sectors());
- return `<section class="panel price-analysis"><div class="panel-toolbar"><h2>Análise de preços</h2><label class="search">${icon('search')}<input id="search" type="text" inputmode="search" role="searchbox" value="${esc(search)}" placeholder="Produto ou mercado" aria-label="Buscar preços"></label></div><p class="price-explainer">A variação compara a primeira e a última compra de cada apresentação desde o primeiro registro. Se houver preços diferentes no mesmo cupom, o gráfico usa a média.</p>${series.length?`<div class="price-overview"><span><strong>${series.length}</strong> apresentações</span><span><strong>${series.filter(item=>item.change>0).length}</strong> subiram</span><span><strong>${series.filter(item=>item.change<0).length}</strong> caíram</span><button class="secondary" id="sector-chart" ${changes.length?'':'disabled'}>${icon('chart-bar')}Gráfico por setor</button></div><div class="table-scroll price-analysis-scroll"><table><thead><tr><th>Produto</th><th>Último preço pago</th><th>Variação</th><th>Melhor mercado</th><th>Gráfico</th></tr></thead><tbody>${series.map((item,index)=>{const markets=latestByMarket(item),best=markets[0];return `<tr><td><strong>${esc(item.name)}</strong><small>${esc([presentationOf(item),item.sector].filter(Boolean).join(' · '))}</small></td><td>${priceLabel(item.latest.price)} / ${esc(item.unit)}<small>${esc(item.latest.market)} · ${dateLabel(item.latest.date)}</small></td><td>${item.change==null?'<span class="muted">Sem comparação</span>':`<strong class="${trendClass(item.change)}">${percent(item.change)}</strong><small>Desde ${dateLabel(item.first.date)}</small>`}</td><td><button class="text-btn best-market" data-market-compare="${index}">${esc(best.market)}<small>${money(best.price)}${markets.length===1?' · 1 mercado':''}</small></button></td><td><button class="icon-btn" data-price-chart="${index}" aria-label="Ver gráfico de ${esc(item.name)}" title="Ver gráfico">${icon('chart-no-axes-combined')}</button></td></tr>`;}).join('')}</tbody></table></div>`:empty('Nenhum preço para analisar','Registre uma compra com preços ou ajuste a busca.')}</section><details class="panel price-history" ${priceHistoryOpen?'open':''}><summary>Histórico de preços <span>${lines.length} registros</span></summary>${lines.length?`<div class="table-scroll price-history-scroll"><table><thead><tr><th>Produto</th><th>Mercado</th><th>Data</th><th>Original</th><th>Pago</th><th>Preço base</th></tr></thead><tbody>${lines.map(line=>{
+ const available=visiblePriceSeries();
+ const series=filterAndSortPrices(available,priceTrend,priceSort);
+ const changes=sectorChanges(available,sectors());
+ return `<section class="panel price-analysis"><div class="panel-toolbar"><h2>Análise de preços</h2><label class="search">${icon('search')}<input id="search" type="text" inputmode="search" role="searchbox" value="${esc(search)}" placeholder="Produto ou mercado" aria-label="Buscar preços"></label></div><p class="price-explainer">A variação compara a primeira e a última compra de cada apresentação desde o primeiro registro. Se houver preços diferentes no mesmo cupom, o gráfico usa a média.</p>${available.length?`<div class="price-overview"><button class="secondary trend-filter" data-price-trend="all" aria-pressed="${priceTrend==='all'}"><strong>${available.length}</strong> Todas</button><button class="secondary trend-filter" data-price-trend="up" aria-pressed="${priceTrend==='up'}"><strong>${available.filter(item=>item.change>0).length}</strong> Subiram</button><button class="secondary trend-filter" data-price-trend="down" aria-pressed="${priceTrend==='down'}"><strong>${available.filter(item=>item.change<0).length}</strong> Caíram</button><button class="secondary" id="sector-chart" ${changes.length?'':'disabled'}>${icon('chart-bar')}Gráfico por setor</button></div>${mobilePriceSort()}<div class="table-scroll price-analysis-scroll"><table><thead><tr>${sortHeading('product','Produto')}${sortHeading('latest','Último preço pago')}${sortHeading('change','Variação')}${sortHeading('market','Melhor mercado')}<th>Gráfico</th></tr></thead><tbody>${series.map((item,index)=>{const markets=latestByMarket(item),best=markets[0];return `<tr><td><strong>${esc(item.name)}</strong><small>${esc([presentationOf(item),item.sector].filter(Boolean).join(' · '))}</small></td><td>${priceLabel(item.latest.price)} / ${esc(item.unit)}<small>${esc(item.latest.market)} · ${dateLabel(item.latest.date)}</small></td><td>${item.change==null?'<span class="muted">Sem comparação</span>':`<strong class="${trendClass(item.change)}">${percent(item.change)}</strong><small>Desde ${dateLabel(item.first.date)}</small>`}</td><td><button class="text-btn best-market" data-market-compare="${index}">${esc(best.market)}<small>${money(best.price)}${markets.length===1?' · 1 mercado':''}</small></button></td><td><button class="icon-btn" data-price-chart="${index}" aria-label="Ver gráfico de ${esc(item.name)}" title="Ver gráfico">${icon('chart-no-axes-combined')}</button></td></tr>`;}).join('')}</tbody></table></div>${series.length?'':'<p class="price-explainer">Nenhum produto neste filtro.</p>'}`:empty('Nenhum preço para analisar','Registre uma compra com preços ou ajuste a busca.')}</section><details class="panel price-history" ${priceHistoryOpen?'open':''}><summary>Histórico de preços <span>${lines.length} registros</span></summary>${lines.length?`<div class="table-scroll price-history-scroll"><table><thead><tr><th>Produto</th><th>Mercado</th><th>Data</th><th>Original</th><th>Pago</th><th>Preço base</th></tr></thead><tbody>${lines.map(line=>{
   const base=hasPackageSize(line)?unitPrice(line.price,line.size,line.packUnit||'un'):unitPrice(line.price,1,line.unit||'un');
   return `<tr><td><strong>${esc(line.name)}</strong><small>${esc(presentationOf(line))}</small></td><td>${esc(line.market)}</td><td>${dateLabel(line.date)}</td><td>${priceLabel(originalPrice(line))}</td><td>${priceLabel(line.price)}${line.allocatedDiscount>0?'<small>Desconto geral rateado</small>':''}</td><td>${base?money(base.value)+' / '+base.unit:'—'}</td></tr>`;
  }).join('')}</tbody></table></div>`:empty('Nenhum preço registrado','Os preços aparecem aqui depois de finalizar compras com valores informados.')}</details>`;
@@ -192,14 +209,34 @@ function renderPrices(){
 function bindPriceAnalysis(){
  const history=$('.price-history');
  if(history)history.ontoggle=()=>{priceHistoryOpen=history.open;};
- const series=visiblePriceSeries();
+ const available=visiblePriceSeries();
+ const series=filterAndSortPrices(available,priceTrend,priceSort);
+ for(const button of document.querySelectorAll('[data-price-trend]')){
+  button.onclick=()=>{priceTrend=button.dataset.priceTrend;resetPriceTableScroll();app();};
+ }
+ for(const button of document.querySelectorAll('[data-price-sort]')){
+  button.onclick=()=>{
+   const key=button.dataset.priceSort;
+   priceSort={key,direction:priceSort.key===key&&priceSort.direction==='ascending'?'descending':'ascending'};
+   resetPriceTableScroll();
+   app();
+  };
+ }
+ $('#price-sort-mobile')?.addEventListener('change',event=>{
+  priceSort={key:event.currentTarget.value,direction:'ascending'};
+  resetPriceTableScroll();app();
+ });
+ $('#price-sort-direction')?.addEventListener('click',()=>{
+  priceSort={...priceSort,direction:priceSort.direction==='ascending'?'descending':'ascending'};
+  resetPriceTableScroll();app();
+ });
  for(const button of document.querySelectorAll('[data-price-chart]')){
   button.onclick=()=>productPriceChart(series[Number(button.dataset.priceChart)]);
  }
  for(const button of document.querySelectorAll('[data-market-compare]')){
   button.onclick=()=>{const item=series[Number(button.dataset.marketCompare)];showMarketComparison(item.name,[item]);};
  }
- $('#sector-chart')?.addEventListener('click',()=>sectorPriceChart(sectorChanges(series,sectors())));
+ $('#sector-chart')?.addEventListener('click',()=>sectorPriceChart(sectorChanges(available,sectors())));
 }
 function showMarketComparison(name,series){
  const blocks=series.map(item=>{
@@ -305,6 +342,7 @@ function bind(){
  document.querySelectorAll('[data-check]').forEach(el=>el.onclick=()=>{const i=get(el.dataset.check);if(i.bought>0){const old={...i};put('item',{...i,bought:0,paidPrice:undefined});toast('Produto desmarcado.',()=>put('item',old));}else buyDialog(i);});
  document.querySelectorAll('[data-edit]').forEach(el=>el.onclick=()=>itemDialog(get(el.dataset.edit)));
  bindCatalogForms();
+ for(const button of document.querySelectorAll('[data-sector-filter]'))button.onclick=()=>{catalogSector=button.dataset.sectorFilter||null;app();};
  for(const control of document.querySelectorAll('[data-catalog-choice]')){
   control.onchange=()=>{
    if(control.checked)catalogSelected.add(control.dataset.catalogChoice);

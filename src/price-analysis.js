@@ -101,3 +101,21 @@ export function searchPriceSeries(series,query){
 export function priceChartTimeline(series){
  return [...series.points].sort((a,b)=>a.date.localeCompare(b.date)||a.order-b.order);
 }
+
+export function filterAndSortPrices(series,trend,sort){
+ const values={
+  product:item=>item.name,
+  latest:item=>item.latest.price,
+  change:item=>item.change,
+  market:item=>latestByMarket(item)[0]?.market
+ };
+ const value=values[sort.key]||values.product;
+ const direction=sort.direction==='descending'?-1:1;
+ return series.filter(item=>trend==='up'?item.change>0:trend==='down'?item.change<0:true)
+  .map(item=>({item,value:value(item)}))
+  .sort((a,b)=>{
+   if(a.value==null||b.value==null)return Number(a.value==null)-Number(b.value==null);
+   const order=typeof a.value==='number'?a.value-b.value:String(a.value).localeCompare(String(b.value),'pt-BR');
+   return direction*order;
+  }).map(({item})=>item);
+}
