@@ -10,11 +10,13 @@ export function purchasePrices(purchases){
 export const hasPackageSize=item=>item.size>1||(item.size>0&&['kg','g','L','ml'].includes(item.packUnit));
 
 export function latestCatalogPrice(product,prices){
- return prices.find(line=>line.price!=null&&(
-  (product.id&&line.productId===product.id)||normalize(line.name)===normalize(product.name)
- )&&(line.unit||'un')===(product.unit||'un')&&(
-  !hasPackageSize(product)||(line.size===product.size&&(line.packUnit||'un')===(product.packUnit||'un'))
- ));
+ const pack=analysisPackage(product,product.name);
+ return prices.find(line=>{
+  if(!Number.isFinite(line.price)||line.price<0||(line.unit||'un')!==(product.unit||'un'))return false;
+  const linePack=analysisPackage(line,product.name);
+  const matches=(product.id&&line.productId===product.id)||nameKey(line.name,linePack)===nameKey(product.name,pack);
+  return matches&&(!pack.size||JSON.stringify(packageKey(linePack))===JSON.stringify(packageKey(pack)));
+ });
 }
 
 export function discountPerUnit(line){

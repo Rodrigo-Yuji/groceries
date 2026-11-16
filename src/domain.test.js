@@ -34,3 +34,13 @@ test('consolida preços idênticos do cupom, mantendo preços e embalagens difer
  const rated={...line,allocatedDiscount:1.30};
  assert.deepEqual(distinctPriceLines([line,{...line,name:'FAROFA YOKI 400G',quantity:3},{...line,price:10.590000000001},cheaper,otherSize,rated]),[line,cheaper,otherSize,rated]);
 });
+
+test('leva um produto avulso marcado como comprado ao histórico sem exigir vínculo',()=>{
+ const draft={name:'Produto criado na hora',quantity:2,bought:0,unit:'un'};
+ const marked=purchaseItem(draft,2,5.99);
+ assert.equal(marked.bought,2);
+ const {purchase,remaining}=finishPurchase([marked],'Mercado','2026-11-16');
+ assert.equal(purchase.lines[0].name,draft.name);
+ assert.equal(purchase.total,11.98);
+ assert.deepEqual(remaining,[]);
+});
