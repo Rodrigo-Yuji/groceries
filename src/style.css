@@ -302,3 +302,4 @@ fieldset{border:1px solid var(--border);border-radius:10px;min-width:0}
 #comparison-dock .comparison-form input,#comparison-dock .comparison-form select{padding:6px 4px;font-size:.78rem}
 #comparison-dock .comparison-result{margin:7px 0 1px}
 @media(max-width:720px){#comparison-dock{display:none}}
+.monetary-input{font-variant-numeric:tabular-nums}
