@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {marketName,receiptName} from './receipt-names.js';
+import {marketName,receiptName,suggestReceiptNames} from './receipt-names.js';
 import {DEFAULT_SECTORS,suggestSector} from './domain.js';
 
 test('corrigidos pelo usuário prevalecem sobre expansões e mantêm variantes',()=>{
@@ -32,4 +32,24 @@ test('expande mussarela, pipoca e abreviações comuns sem adivinhar variantes',
  assert.equal(name('POPCOR YOK 100G DOCE'),'POPCOR YOK 100G DOCE');
  assert.equal(name('CEBOLA NAC kg'),'Cebola nacional');
  assert.equal(name('EXTR TOM 300G'),'Extrato de tomate 300g');
+});
+
+test('consulta produtos novos por código e preserva correções e nomes originais',async()=>{
+ const calls=[];
+ const fetchProduct=async url=>{
+  calls.push(url);
+  return {ok:true,json:async()=>({product:{code:'7891095008452',product_name_pt:'Pipoca Manteiga de Cinema',brands:'Yoki',quantity:'100 g'}})};
+ };
+ const lines=[
+  {name:'PIP PCT A',barcode:'7891095008452'},
+  {name:'PIP PCT B',barcode:'7891095008452'},
+  {name:'ABC XYZ',barcode:'SEM GTIN'},
+ ];
+ const results=await suggestReceiptNames(lines,[],[{key:'pip pct b',name:'Minha pipoca'}],[],fetchProduct);
+ assert.equal(calls.length,1);
+ assert.equal(results[0].name,'Pipoca Manteiga de Cinema - Yoki 100 g');
+ assert.equal(results[0].sourceName,'PIP PCT A');
+ assert.equal(results[1].name,'Minha pipoca');
+ assert.equal(results[2].name,'ABC XYZ');
+ assert.equal(receiptName('OVO BCO GRANDE C/30',[],[]),'Ovos brancos grandes, 30 un');
 });

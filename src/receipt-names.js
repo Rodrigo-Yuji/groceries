@@ -14,6 +14,27 @@ export function receiptName(raw,products,aliases,history=[]){
 }
 
 const receiptRules=[
+ [/^ling calab sadia (\d+)\s*kg$/,m=>'Linguiça calabresa - Sadia '+m[1]+' kg'],
+ [/^bisc mari (\d+)\s*g choc$/,m=>'Biscoito de chocolate - Marilan '+m[1]+'g'],
+ [/^det ype (\d+)\s*ml care$/,m=>'Detergente Care - Ypê '+m[1]+' mL'],
+ [/^ac cristal (\d+)\s*kg$/,m=>'Açúcar cristal '+m[1]+' kg'],
+ [/^feij car cristal (\d+)\s*kg$/,m=>'Feijão carioca - Cristal '+m[1]+' kg'],
+ [/^mac nissin carne (\d+)\s*g$/,m=>'Macarrão instantâneo sabor carne - Nissin '+m[1]+'g'],
+ [/^esp bombril c (\d+)$/,m=>'Esponja - Bombril, '+m[1]+' un'],
+ [/^sorv eskibon (\d+)\s*g$/,m=>'Sorvete Eskibon '+m[1]+'g'],
+ [/^batata monali(?:sa)?(?: lav(?:ada)?)?(?: kg)?$/,'Batata Monalisa lavada'],
+ [/^lte int italac (\d+)\s*l(?: ct)?$/,m=>'Leite integral - Italac '+m[1]+' L'],
+ [/^guarana jesus (\d+)\s*lt?$/,m=>'Guaraná Jesus '+m[1]+' L'],
+ [/^coca cola s ac (\d+)\s*lt?$/,m=>'Coca-Cola sem açúcar '+m[1]+' L'],
+ [/^contra file frib(?:oi)?(?: fc)?$/,'Contrafilé - Friboi'],
+ [/^iog itambe (\d+)\s*g floc$/,m=>'Iogurte sabor flocos - Itambé '+m[1]+'g'],
+ [/^cup noodles? (\d+)\s*g cost(?:ela)?$/,m=>'Cup Noodles sabor costela '+m[1]+'g'],
+ [/^cup noodles? (\d+)\s*g bolon(?:hesa)?$/,m=>'Cup Noodles sabor bolonhesa '+m[1]+'g'],
+ [/^pilha pan al pal c (\d+)$/,m=>'Pilha alcalina AAA - Panasonic, '+m[1]+' un'],
+ [/^mort sadia fat (\d+)\s*g$/,m=>'Mortadela fatiada - Sadia '+m[1]+'g'],
+ [/^bala dori (\d+)\s*g banana$/,m=>'Bala sabor banana - Dori '+m[1]+'g'],
+ [/^ovo bco grande c (\d+)$/,m=>'Ovos brancos grandes, '+m[1]+' un'],
+
  [/^(?:cr(?:eme)? (?:de )?av(?:ela)? )?nutella (\d+)\s*g$/,m=>'Creme de avelã - Nutella '+m[1]+'g'],
  [/^l(?:eite)? cond(?:ensado)? moca(?: la)? (\d+)\s*g$/,m=>'Leite condensado - Moça '+m[1]+'g'],
  [/^far(?:ofa)? yoki (\d+)\s*g tra(?:dicional)?$/,m=>'Farofa tradicional - Yoki '+m[1]+'g'],
@@ -55,4 +76,40 @@ export function marketName(raw,aliases,purchases=[]){
  if(!key)return raw;
  return aliases.find(row=>row.key===key)?.name||
   purchases.find(p=>marketAliasKey(originalMarket(p))===key)?.market||raw;
+}
+
+function validBarcode(value){
+ const code=String(value||'').trim();
+ if(!/^(?:\d{8}|\d{12,14})$/.test(code)||/^0+$/.test(code))return '';
+ const digits=[...code].map(Number);
+ const check=digits.pop();
+ const sum=digits.reverse().reduce((total,digit,index)=>total+digit*(index%2?1:3),0);
+ return (10-sum%10)%10===check?code:'';
+}
+
+const barcodeNames=new Map();
+export async function suggestReceiptNames(lines,products,aliases,history,fetchProduct=fetch){
+ const suggested=lines.map(line=>({...line,sourceName:line.name,name:receiptName(line.name,products,aliases,history)}));
+ const candidates=suggested.filter(line=>line.name===line.sourceName&&validBarcode(line.barcode)&&
+  !aliases.some(alias=>alias.key===normalize(line.sourceName)));
+ const codes=[...new Set(candidates.map(line=>validBarcode(line.barcode)))].slice(0,16);
+ const deadline=AbortSignal.timeout(3500);
+ await Promise.all(codes.map(async code=>{
+  if(barcodeNames.has(code))return;
+  try{
+   const url='https://world.openfoodfacts.org/api/v2/product/'+code+'.json?fields=code,product_name_pt,product_name,lang,brands,quantity';
+   const response=await fetchProduct(url,{signal:deadline,credentials:'omit',referrerPolicy:'no-referrer'});
+   if(!response.ok)return;
+   const {product}=await response.json();
+   if(product?.code!==code)return;
+   const name=String(product.product_name_pt||(product.lang==='pt'?product.product_name:'')||'').trim();
+   if(!name)return;
+   const brand=String(product.brands||'').split(',')[0].trim(),quantity=String(product.quantity||'').trim();
+   const includes=value=>normalize(name).includes(normalize(value));
+   const label=[name,brand&&!includes(brand)?' - '+brand:'',quantity&&!includes(quantity)?' '+quantity:''].join('');
+   if(label.length<=120)barcodeNames.set(code,label);
+  }catch{}
+ }));
+ return suggested.map(line=>candidates.includes(line)&&barcodeNames.has(validBarcode(line.barcode))?
+  {...line,name:barcodeNames.get(validBarcode(line.barcode))}:line);
 }

@@ -10,7 +10,7 @@ export function readXML(text){
  const doc=new DOMParser().parseFromString(text,'application/xml');
  if(doc.querySelector('parsererror'))throw Error('O arquivo XML é inválido.');
  const val=(node,key)=>node.getElementsByTagName(key)[0]?.textContent||'';
- const lines=[...doc.getElementsByTagName('det')].map(det=>{const p=det.getElementsByTagName('prod')[0];if(!p)return null;const quantity=number(val(p,'qCom'));const discount=number(val(p,'vDesc'));const gross=number(val(p,'vProd'));return {name:val(p,'xProd'),quantity,price:quantity?gross/quantity:0,discount, unit:fiscalUnit(val(p,'uCom'))};}).filter(x=>x?.name&&x.quantity>0);
+ const lines=[...doc.getElementsByTagName('det')].map(det=>{const p=det.getElementsByTagName('prod')[0];if(!p)return null;const quantity=number(val(p,'qCom'));const discount=number(val(p,'vDesc'));const gross=number(val(p,'vProd'));return {name:val(p,'xProd'),barcode:val(p,'cEAN'),quantity,price:quantity?gross/quantity:0,discount, unit:fiscalUnit(val(p,'uCom'))};}).filter(x=>x?.name&&x.quantity>0);
  if(!lines.length)throw Error('Nenhum produto encontrado. Envie o XML completo da NFC-e/NF-e.');
  const emit=doc.getElementsByTagName('emit')[0];return {lines,market:emit?(val(emit,'xFant')||val(emit,'xNome')):'',date:(val(doc,'dhEmi')||val(doc,'dEmi')).slice(0,10),expected:val(doc,'vNF'),key:doc.querySelector('infNFe')?.getAttribute('Id')?.match(/\d{44}/)?.[0]};
 }
@@ -39,7 +39,7 @@ function readGoiasDetailed(document){
   const detail=table.nextElementSibling?.matches('table.toggable')?table.nextElementSibling:null;
   const name=cell('descricao'),quantity=decimal(cell('qtd')),gross=decimal(cell('vb'));
   if(!name||!(quantity>0)||!Number.isFinite(gross))return [];
-  return [{name,quantity,unit:fiscalUnit(cell('uc')),price:gross/quantity,
+  return [{name,barcode:field(detail,/^código ean comercial$/i),quantity,unit:fiscalUnit(cell('uc')),price:gross/quantity,
    originalPrice:decimal(field(detail,/^valor unitário de comercialização$/i))??gross/quantity,
    discount:decimal(field(detail,/^valor do desconto$/i))??0}];
  });
