@@ -26,6 +26,32 @@ function fiscalUnit(value){
  const unit=value.toLowerCase().trim();
  return ({kg:'kg',g:'g',l:'L',ml:'ml',pc:'pacote',pct:'pacote',cx:'caixa'})[unit]||'un';
 }
+function readGoiasDetailed(document){
+ const products=document.querySelector('#Prod');
+ if(!products)return null;
+ const field=(section,pattern)=>{
+  const label=[...(section?.querySelectorAll('label')||[])].find(node=>pattern.test(node.textContent.replace(/\s+/g,' ').trim()));
+  return label?.parentElement.querySelector('span')?.textContent.trim()||'';
+ };
+ const decimal=text=>text?number(text.replaceAll('.','')):undefined;
+ const lines=[...products.querySelectorAll('table.toggle')].flatMap(table=>{
+  const cell=type=>table.querySelector('.fixo-prod-serv-'+type)?.textContent.trim()||'';
+  const detail=table.nextElementSibling?.matches('table.toggable')?table.nextElementSibling:null;
+  const name=cell('descricao'),quantity=decimal(cell('qtd')),gross=decimal(cell('vb'));
+  if(!name||!(quantity>0)||!Number.isFinite(gross))return [];
+  return [{name,quantity,unit:fiscalUnit(cell('uc')),price:gross/quantity,
+   originalPrice:decimal(field(detail,/^valor unitário de comercialização$/i))??gross/quantity,
+   discount:decimal(field(detail,/^valor do desconto$/i))??0}];
+ });
+ if(!lines.length)return null;
+ const key=field(document,/^chave de acesso$/i).replace(/\D/g,'');
+ const emit=document.querySelector('#Emitente');
+ const market=field(emit,/^nome fantasia$/i)||field(emit,/^nome\s*\/\s*razão social$/i);
+ const dateText=field(document.querySelector('#NFe'),/^data de emissão$/i)||field(document,/^data de emissão$/i);
+ const dateParts=dateText.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+ const expected=decimal(field(document.querySelector('#Totais'),/^valor total da nf-?e$/i)||field(document,/^valor total da nota fiscal$/i));
+ return {lines,market,date:dateParts?[dateParts[3],dateParts[2],dateParts[1]].join('-'):'',expected,detailed:true,key:key.length===44?key:undefined};
+}
 function readDetailedReceipt(document){
  const amount=text=>{
   const value=String(text||'').trim();
@@ -70,7 +96,7 @@ function readDetailedReceipt(document){
 }
 export function readPortalHTML(html){
  const document=new DOMParser().parseFromString(html,'text/html');
- const detailed=readDetailedReceipt(document);
+ const detailed=readGoiasDetailed(document)||readDetailedReceipt(document);
  if(detailed)return detailed;
  let lines=[...document.querySelectorAll('#tabResult tr')].flatMap(row=>{
   const field=selector=>row.querySelector(selector)?.textContent.trim()||'';
@@ -123,7 +149,10 @@ export async function readReceiptFiles(files){
  let best, lastError;
  for(const file of documents){
   try{
-   const text=await file.text();
+   const bytes=await file.arrayBuffer();
+   const header=new TextDecoder().decode(bytes.slice(0,8192));
+   const encoding=header.match(/charset\s*=\s*["']?\s*(windows-1252|iso-8859-1)/i)?.[1]||'utf-8';
+   const text=new TextDecoder(encoding).decode(bytes);
    const result=/\.xml$/i.test(file.name)?readXML(text):readPortalHTML(text);
    const priority=/\.xml$/i.test(file.name)?3:result.detailed?2:1;
    if(!best||priority>best.priority||(priority===best.priority&&result.lines.length>best.result.lines.length))best={result,priority};
