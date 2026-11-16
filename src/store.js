@@ -166,8 +166,43 @@ export async function manageHouse(action,target=null){
  if(error)throw Error(fail(error));
  return data;
 }
+function applyDisplayName(user){
+ const name=user?.user_metadata?.groceries_display_name;
+ if(typeof name!=='string'||name===state.name)return;
+ state.name=name;
+ persist();
+ callback();
+}
+let profileVersion=0;
+async function refreshDisplayName(){
+ const id=session.user?.id,version=profileVersion;
+ if(!id||!navigator.onLine)return;
+ const {data,error}=await supabase.auth.getUser();
+ if(!error&&data.user?.id===id&&session.user?.id===id&&version===profileVersion)applyDisplayName(data.user);
+}
+export async function saveDisplayName(value){
+ const name=value.trim().slice(0,60);
+ if(!name)throw Error('Digite seu nome.');
+ const id=session.user?.id;
+ if(!id){
+  state.name=name;persist();callback();return;
+ }
+ if(!navigator.onLine)throw Error('Conecte-se à internet para salvar o nome na conta.');
+ profileVersion++;
+ const {data,error}=await supabase.auth.updateUser({data:{groceries_display_name:name}});
+ profileVersion++;
+ if(error)throw Error(fail(error));
+ if(session.user?.id===id&&data.user?.id===id){
+  session.user=data.user;
+  applyDisplayName(data.user);
+ }
+}
 async function useAccount(user,importGuest=false){
- if(user?.id===session.user?.id)return;
+ if(user?.id===session.user?.id){
+  session.user=user;
+  applyDisplayName(user);
+  return;
+ }
  const guest=importGuest&&!session.user&&!state.household?structuredClone(state):null;
  epoch++;
  channel?.unsubscribe();
@@ -181,8 +216,10 @@ async function useAccount(user,importGuest=false){
   localStorage.removeItem(KEY);
   persist();
  }
+ applyDisplayName(user);
  callback();
  if(!user)return;
+ void refreshDisplayName();
  const generation=epoch;
  if(state.household){subscribe(state.household.id);await sync();return;}
  if(!navigator.onLine)return;
@@ -199,7 +236,8 @@ export async function initialize(onAuthEvent=()=>{}){
  });
  const {data:{session:auth}}=await supabase.auth.getSession();
  await useAccount(auth?.user||null).catch(error=>{session.error=fail(error);callback();});
- window.addEventListener('online',()=>{callback();void sync();});
+ window.addEventListener('online',()=>{callback();void sync();void refreshDisplayName();});
+ document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void refreshDisplayName();});
  window.addEventListener('offline',callback);
  setInterval(()=>{if(document.visibilityState==='visible')void sync();},15000);
 }

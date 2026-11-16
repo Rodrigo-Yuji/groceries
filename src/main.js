@@ -3,7 +3,7 @@ import {receiptName,marketName,marketAliasKey,originalMarket} from './receipt-na
 import {appURL,invitationURL,pendingInvitation,clearInvitation,authMessage,changePassword} from './account.js';
 import {createIcons,icons} from 'lucide';
 import {normalize,money,number,suggestSector,purchaseItem,finishPurchase,unitPrice,parseReceipt,receiptFingerprint} from './domain.js';
-import {state,session,supabase,records,get,put,remove,sectors,setSectors,persist,onChange,initialize,createHouse,joinHouse,logout,sync,batch,resolveConflict,listHouses,connectHousehold,manageHouse} from './store.js';
+import {state,session,supabase,records,get,put,remove,sectors,setSectors,persist,onChange,initialize,createHouse,joinHouse,logout,sync,batch,resolveConflict,listHouses,connectHousehold,manageHouse,saveDisplayName} from './store.js';
 import {readImage,readQR,readReceiptFiles,importFiscalURL} from './receipt.js';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -62,7 +62,14 @@ function bind(){
  bindCatalogForms();
  document.querySelectorAll('[data-product-edit]').forEach(el=>el.onclick=()=>productDialog(get(el.dataset.productEdit)));
  document.querySelectorAll('[data-purchase]').forEach(el=>el.onclick=()=>purchaseDialog(get(el.dataset.purchase)));
- $('#name-form')?.addEventListener('submit',e=>{e.preventDefault();state.name=new FormData(e.target).get('name').trim();persist();app();toast('Nome atualizado.');});
+ $('#name-form')?.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const form=event.currentTarget,button=form.querySelector('button');
+  button.disabled=true;
+  try{await saveDisplayName(form.elements.name.value);toast('Nome atualizado.');}
+  catch(error){toast(error.message);}
+  finally{button.disabled=false;}
+ });
  document.querySelectorAll('[data-sector-up]').forEach(el=>el.onclick=()=>{let list=[...sectors()],i=+el.dataset.sectorUp;[list[i-1],list[i]]=[list[i],list[i-1]];setSectors(list);});
  document.querySelectorAll('[data-sector-edit]').forEach(el=>el.onclick=()=>sectorDialog(+el.dataset.sectorEdit));
  document.querySelectorAll('[data-sector-remove]').forEach(el=>el.onclick=()=>{const name=sectors()[+el.dataset.sectorRemove];if(name==='Sem setor')return toast('O setor padrão precisa permanecer.');confirmDialog('Remover setor?',`Os produtos de “${name}” passam para Sem setor.`,()=>{for(const kind of ['item','product'])for(const r of records(kind).filter(r=>r.sector===name))put(kind,{...r,sector:'Sem setor'});setSectors(sectors().filter(s=>s!==name));});});
