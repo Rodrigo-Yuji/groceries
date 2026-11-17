@@ -317,3 +317,28 @@ fieldset{border:1px solid var(--border);border-radius:10px;min-width:0}
 .item-trash{color:#8e3431}
 .item-trash:hover{background:#f8eae8}
 @media(max-width:480px){.item-actions .icon-btn{width:32px;min-height:40px}.item-actions svg{width:17px;height:17px}}
+.item-modal{display:flex;flex-direction:column;overflow:hidden;padding:14px 16px}
+.item-modal .modal-heading{flex:none}
+.item-modal #item-form{display:flex;flex-direction:column;gap:0;min-height:0;margin-top:5px}
+.item-form-body{display:grid;gap:6px;min-height:0;overflow:auto;overscroll-behavior:contain;padding:2px}
+.item-form-body label{gap:3px}
+.item-form-body .field-hint:empty,.item-form-body .form-error:empty{display:none}
+.item-form-body .form-error{margin:0}
+.item-quantity-and-facts{display:grid;grid-template-columns:minmax(80px,105px) minmax(0,1fr);align-items:end;gap:6px}
+.item-quantity-field>label{font-size:.77rem}
+.item-quantity-field .item-quantity-stepper{width:100%;grid-template-columns:28px minmax(0,1fr) 28px;margin-top:2px}
+.item-quantity-field .item-quantity-stepper .icon-btn{min-height:37px}
+.item-quantity-and-facts .item-facts{margin:0;gap:4px 6px;padding:4px 6px}
+.item-quantity-and-facts .item-facts dt{font-size:.65rem;line-height:1.1}
+.item-quantity-and-facts .item-facts dd{font-size:.77rem;line-height:1.1}
+.item-form-actions{margin-top:7px;padding-top:7px;border-top:1px solid var(--border);flex:none}
+@media(max-width:720px){
+ .item-overlay{inset:auto 0 auto;top:var(--item-viewport-top,0px);height:var(--item-viewport-height,100dvh);padding:6px}
+ .item-modal{max-height:calc(var(--item-viewport-height,100dvh) - 12px);padding:8px 10px}
+ .item-modal .modal-heading h2{font-size:1.16rem}
+ .item-modal .modal-heading .icon-btn{min-height:34px;padding:2px 6px}
+ .item-form-body label{font-size:.82rem}
+ .item-form-body input:not([type=checkbox],[type=file]){padding-block:5px}
+ .item-form-actions button{min-height:44px;padding:5px 10px}
+ .item-quantity-and-facts{grid-template-columns:minmax(80px,94px) minmax(0,1fr)}
+}

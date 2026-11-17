@@ -453,9 +453,30 @@ function confirmRemoveItem(id){
  });
 }
 
+function fitItemDialog(){
+ const overlay=$('.overlay');
+ const dialog=overlay.querySelector('.modal');
+ overlay.classList.add('item-overlay');
+ dialog.classList.add('item-modal');
+ const viewport=window.visualViewport;
+ if(!viewport)return;
+ const resize=()=>{
+  overlay.style.setProperty('--item-viewport-height',viewport.height+'px');
+  overlay.style.setProperty('--item-viewport-top',viewport.offsetTop+'px');
+ };
+ resize();
+ viewport.addEventListener('resize',resize);
+ viewport.addEventListener('scroll',resize);
+ modalCleanup=()=>{
+  viewport.removeEventListener('resize',resize);
+  viewport.removeEventListener('scroll',resize);
+ };
+}
+
 function itemDialog(item=null,product=null){
  const p=product|| (item?.productId?get(item.productId):null);const value=item||{name:p?.name||'',quantity:1,unit:p?.unit||'un',sector:p?.sector||'Sem setor',price:p?.lastPrice??null,size:p?.size||1,packUnit:p?.packUnit||'un',presentation:p?.presentation||''};
- showModal(item?'Editar item':'Adicionar à lista',`<form id="item-form"><label>Produto<input name="name" id="product-name" value="${esc(value.name)}" placeholder="Ex.: leite integral" maxlength="120" required autocomplete="off"></label><div id="duplicate-hint" class="field-hint"></div><div id="catalog-matches" class="catalog-matches"></div><div><label for="item-quantity">Quantidade</label><div class="catalog-quantity item-quantity-stepper"><button type="button" class="icon-btn" data-item-qty="-1" aria-label="Diminuir uma unidade">${icon('minus')}</button><input id="item-quantity" name="quantity" type="number" min="0.001" max="100000" step="0.001" inputmode="decimal" value="${value.quantity}" required><button type="button" class="icon-btn" data-item-qty="1" aria-label="Aumentar uma unidade">${icon('plus')}</button></div></div><dl class="item-facts"><div><dt>Setor</dt><dd id="item-sector"></dd></div><div><dt>Unidade</dt><dd id="item-unit"></dd></div><div><dt>Preço por unidade</dt><dd id="item-price"></dd></div></dl>${!item?'<label class="item-bought-now"><input type="checkbox" name="boughtNow">Já coloquei no carrinho</label>':''}<label>Observação (opcional) para quem fará as compras<input name="note" value="${esc(value.note)}" maxlength="300" placeholder="Marca preferida, substituição…"></label><p id="form-error" class="form-error" role="alert"></p><div class="modal-actions">${item?'<button type="button" class="danger-text" id="remove-item">Remover item</button>':'<button type="button" class="secondary" data-cancel>Cancelar</button>'}<button class="primary" type="submit">${icon('plus')}${item?'Salvar alterações':'Adicionar à lista'}</button></div></form>`);
+ showModal(item?'Editar item':'Adicionar à lista',`<form id="item-form"><div class="item-form-body"><label>Produto<input name="name" id="product-name" value="${esc(value.name)}" placeholder="Ex.: leite integral" maxlength="120" required autocomplete="off"></label><div id="duplicate-hint" class="field-hint"></div><div id="catalog-matches" class="catalog-matches"></div><div class="item-quantity-and-facts"><div class="item-quantity-field"><label for="item-quantity">Quantidade</label><div class="catalog-quantity item-quantity-stepper"><button type="button" class="icon-btn" data-item-qty="-1" aria-label="Diminuir uma unidade">${icon('minus')}</button><input id="item-quantity" name="quantity" type="number" min="0.001" max="100000" step="0.001" inputmode="decimal" value="${value.quantity}" required><button type="button" class="icon-btn" data-item-qty="1" aria-label="Aumentar uma unidade">${icon('plus')}</button></div></div><dl class="item-facts"><div><dt>Setor</dt><dd id="item-sector"></dd></div><div><dt>Unidade</dt><dd id="item-unit"></dd></div><div><dt>Preço por unidade</dt><dd id="item-price"></dd></div></dl></div><label>Observação (opcional) para quem fará as compras<input name="note" value="${esc(value.note)}" maxlength="300" placeholder="Marca preferida, substituição…"></label>${!item?'<label class="item-bought-now"><input type="checkbox" name="boughtNow">Já coloquei no carrinho</label>':''}<p id="form-error" class="form-error" role="alert"></p></div><div class="modal-actions item-form-actions">${item?'<button type="button" class="danger-text" id="remove-item">Remover item</button>':'<button type="button" class="secondary" data-cancel>Cancelar</button>'}<button class="primary" type="submit">${icon('plus')}${item?'Salvar alterações':'Adicionar à lista'}</button></div></form>`);
+ fitItemDialog();
  const quantity=$('#item-quantity');
  for(const button of document.querySelectorAll('[data-item-qty]')){
   button.onclick=()=>{
