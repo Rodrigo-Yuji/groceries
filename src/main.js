@@ -719,22 +719,46 @@ function renderHouseInvite(result){
  };
  status.append(label,copy);
 }
-async function houseDialog() {
- if (!session.user) return accountDialog();
- const active = state.household;
+async function houseDialog(){
  const invitation=pendingInvitation();
- showModal('Casas', '<div id="house-details"></div><form id="create-house"><label>Nome da casa<input name="value" maxlength="100" required></label><button class="primary">Criar casa</button></form><form id="join-house"><label>Código de convite<input name="value" required></label><button class="secondary">Entrar na casa</button></form><p id="house-error" role="status"></p>');
- const pane = $('#house-details');
- if(invitation)$('#join-house input').value=invitation;
- const showError = error => { const status=$('#house-error'); if(status)status.textContent=error.message; };
- for (const [selector,action] of [['#create-house',createHouse],['#join-house',joinHouse]]) {
-  $(selector).onsubmit = async event => {
+ if(!session.user)return accountDialog('login',invitation?'Entre ou crie uma conta para aceitar o convite.':'');
+ const active=state.household;
+ const choices='<div class="house-choices"><button type="button" class="secondary" data-house-mode="create">Criar casa <small>Ter sua própria lista compartilhada</small></button><button type="button" class="secondary" data-house-mode="join">Entrar por convite <small>Participar de uma casa existente</small></button></div><div id="house-flow"></div>';
+ const details='<div id="house-details"></div>';
+ showModal('Casas',(invitation?choices+details:details+choices)+'<p id="house-error" role="status"></p>');
+ const pane=$('#house-details'),flow=$('#house-flow');
+ const showError=error=>{
+  const status=$('#house-error');
+  if(status)status.textContent=error.message;
+ };
+ const selectMode=(mode,focus=true)=>{
+  const joining=mode==='join';
+  for(const option of document.querySelectorAll('[data-house-mode]'))option.setAttribute('aria-pressed',String(option.dataset.houseMode===mode));
+  showError(Error(''));
+  flow.innerHTML=joining?
+   '<form id="join-house"><label>Código de convite<input name="value" autocomplete="off" required></label><button class="primary">Entrar na casa</button></form>':
+   '<form id="create-house"><label>Nome da nova casa<input name="value" maxlength="100" required></label><button class="primary">Criar casa</button></form>';
+  const form=flow.querySelector('form'),field=form.elements.value,submit=form.querySelector('button');
+  if(joining&&invitation)field.value=invitation;
+  if(focus)field.focus();
+  form.onsubmit=async event=>{
    event.preventDefault();
+   const value=field.value.trim();
+   if(!value)return showError(Error(joining?'Informe o código do convite.':'Informe o nome da nova casa.'));
    if(state.queue.length)return showError(Error('Sincronize a lista antes de trocar de casa.'));
-   try { await action(new FormData(event.currentTarget).get('value')); if(action===joinHouse)clearInvitation(); if(pane.isConnected)void houseDialog(); }
-   catch (error) { showError(error); }
+   submit.disabled=true;
+   try{
+    if(joining){await joinHouse(value);clearInvitation();}
+    else await createHouse(value);
+    if(pane.isConnected)void houseDialog();
+   }catch(error){showError(error);}
+   finally{submit.disabled=false;}
   };
+ };
+ for(const option of document.querySelectorAll('[data-house-mode]')){
+  option.onclick=()=>selectMode(option.dataset.houseMode);
  }
+ if(invitation)selectMode('join',false);
  try {
   const houses=await listHouses();
   const details=active?await manageHouse('list'):null;

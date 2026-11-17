@@ -343,3 +343,9 @@ fieldset{border:1px solid var(--border);border-radius:10px;min-width:0}
  .item-form-actions button{min-height:44px;padding:5px 10px}
  .item-quantity-and-facts{grid-template-columns:minmax(80px,94px) minmax(0,1fr)}
 }
+.house-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+.house-choices button{align-items:flex-start;flex-direction:column;text-align:left;gap:3px;line-height:1.25}
+.house-choices button small{color:var(--muted);font-size:.75rem;font-weight:500}
+.house-choices button[aria-pressed=true]{background:#e1efda;border-color:#87a585;color:var(--jade)}
+#house-details:empty{display:none}
+#house-error:empty{display:none}
