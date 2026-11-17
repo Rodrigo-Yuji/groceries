@@ -320,8 +320,9 @@ fieldset{border:1px solid var(--border);border-radius:10px;min-width:0}
 .item-modal{display:flex;flex-direction:column;overflow:hidden;padding:14px 16px}
 .item-modal .modal-heading{flex:none}
 .item-modal #item-form{display:flex;flex-direction:column;gap:0;min-height:0;margin-top:5px}
-.item-form-body{display:grid;gap:6px;min-height:0;overflow:auto;overscroll-behavior:contain;padding:2px}
-.item-form-body label{gap:3px}
+.item-form-body{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;min-height:0;overflow:auto;overscroll-behavior:contain;padding:2px}
+.item-form-body label{gap:3px;min-width:0}
+.item-form-body input:focus-visible{outline-offset:-3px}
 .item-form-body .field-hint:empty,.item-form-body .form-error:empty{display:none}
 .item-form-body .form-error{margin:0}
 .item-quantity-and-facts{display:grid;grid-template-columns:minmax(80px,105px) minmax(0,1fr);align-items:end;gap:6px}
