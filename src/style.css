@@ -349,3 +349,14 @@ fieldset{border:1px solid var(--border);border-radius:10px;min-width:0}
 .house-choices button[aria-pressed=true]{background:#e1efda;border-color:#87a585;color:var(--jade)}
 #house-details:empty{display:none}
 #house-error:empty{display:none}
+.item[data-item-row]{cursor:pointer;padding:5px 10px;gap:8px;line-height:1.22}
+.item-meta{gap:2px 7px;font-size:.78rem}
+.item-best-market{margin-top:2px;font-size:.72rem}
+.item[data-item-row] .check-item,.item[data-item-row] .item-actions .icon-btn{min-height:34px;height:34px}
+@media(max-width:720px){
+ .item[data-item-row]{padding:4px 7px;gap:5px}
+ .item[data-item-row] .check-item{width:34px;flex-basis:34px}
+ .item-name{font-size:.87rem}
+ .item-meta{font-size:.72rem}
+ .item-best-market{font-size:.68rem}
+}
