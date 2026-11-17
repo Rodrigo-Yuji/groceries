@@ -437,13 +437,14 @@ function bindCatalogForms(){
    const newQuantity=Math.round(((existing?.quantity||0)+qty)*1000)/1000;
    if(newQuantity>100000){toast('A quantidade total deve ser de até 100.000.');return;}
    catalogDrafts.delete(id);
+   let itemId;
    if(existing){
     const notes=[...new Set([existing.quickNote,observation].filter(Boolean))];
-    put('item',{...existing,quantity:newQuantity,quickNote:notes.join(' · '),lastRequest:freshRequest(requesterName())});
+    itemId=put('item',{...existing,quantity:newQuantity,quickNote:notes.join(' · '),lastRequest:freshRequest(requesterName())});
    }else{
-    put('item',{productId:id,name:product.name,quantity:newQuantity,bought:0,unit,sector:product.sector||'Sem setor',price:latest?.price??product.lastPrice??null,size:product.size||1,packUnit:product.packUnit||unit,presentation:product.presentation||'',quickNote:observation,createdAt:Date.now(),requester:requesterName(),lastRequest:freshRequest(requesterName())});
+    itemId=put('item',{productId:id,name:product.name,quantity:newQuantity,bought:0,unit,sector:product.sector||'Sem setor',price:latest?.price??product.lastPrice??null,size:product.size||1,packUnit:product.packUnit||unit,presentation:product.presentation||'',quickNote:observation,createdAt:Date.now(),requester:requesterName(),lastRequest:freshRequest(requesterName())});
    }
-   toast(existing?'Quantidade atualizada na lista.':'Produto adicionado à lista.');
+   toast(existing?'Quantidade atualizada na lista.':'Produto adicionado à lista.',()=>existing?put('item',existing):remove(itemId));
   };
  });
 }
