@@ -358,3 +358,5 @@ fieldset{border:1px solid var(--border);border-radius:10px;min-width:0}
  .item-meta,.item-quantity{font-size:.72rem}
  .item[data-item-row] .item-actions .icon-btn{width:30px}
 }
+.shopping-status{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-bottom:10px}
+.shopping-status p{margin:0;padding:6px 8px;background:#edf4e9;border-radius:8px;font-size:.85rem}
