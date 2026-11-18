@@ -998,7 +998,7 @@ function receiptDialog(draft={lines:[],market:'',date:today()},standalone=false)
    }
    if(line.sourceName&&line.name!==line.sourceName)rememberName(normalize(line.sourceName),line.name);
   }
-  put('purchase',{market,marketSource:marketSource||market,date,createdAt:Date.now(),lines:entries,total:Math.round(entries.reduce((sum,line)=>sum+line.total,0)*100)/100,fingerprint,receiptKey:draft.key});
+  put('purchase',{market,marketSource:marketSource||market,date,createdAt:Date.now(),lines:entries,total:Math.round(entries.reduce((sum,line)=>sum+line.total,0)*100)/100,fingerprint,receiptKey:draft.key,controlAIEligible:!standalone});
   for(const item of pending.filter(row=>row.receiptQuantity)){
    const {receiptQuantity,...data}=item;
    const balance=Math.round((data.quantity-receiptQuantity)*1000)/1000;
