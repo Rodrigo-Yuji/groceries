@@ -1,0 +1,60 @@
+name: GitHub Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: groceries-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      entry: ${{ steps.bundle.outputs.entry }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Identify the version to verify
+        id: bundle
+        run: |
+          entry=$(grep -o 'src="/groceries/assets/[^"]*\.js"' dist/index.html | cut -d/ -f4 | tr -d '"')
+          test -n "$entry"
+          echo "entry=$entry" >> "$GITHUB_OUTPUT"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Verify public version
+        id: verification
+        continue-on-error: true
+        run: node scripts/verify-pages.mjs 'https://rodrigo-yuji.github.io/groceries/' '${{ needs.build.outputs.entry }}'
+      - name: Redeploy if the compiled site was replaced
+        if: steps.verification.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+      - name: Confirm recovery on the public URL
+        if: steps.verification.outcome == 'failure'
+        run: node scripts/verify-pages.mjs 'https://rodrigo-yuji.github.io/groceries/' '${{ needs.build.outputs.entry }}'

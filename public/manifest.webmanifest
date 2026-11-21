@@ -1,1 +1,25 @@
-{"id":"/groceries/","name":"Compra em Dia","short_name":"Compra em Dia","lang":"pt-BR","start_url":"/groceries/","scope":"/groceries/","display":"standalone","background_color":"#f6f7f2","theme_color":"#194f40","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
+{
+  "id": "/groceries/",
+  "name": "Groceries",
+  "short_name": "Groceries",
+  "lang": "pt-BR",
+  "start_url": "/groceries/",
+  "scope": "/groceries/",
+  "display": "standalone",
+  "background_color": "#f6f7f2",
+  "theme_color": "#194f40",
+  "icons": [
+    {
+      "purpose": "any",
+      "type": "image/png",
+      "src": "icon-192.png",
+      "sizes": "192x192"
+    },
+    {
+      "purpose": "any maskable",
+      "type": "image/png",
+      "src": "icon-512.png",
+      "sizes": "512x512"
+    }
+  ]
+}

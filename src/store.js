@@ -1,67 +1,257 @@
 import {createClient} from '@supabase/supabase-js';
 import {DEFAULT_SECTORS} from './domain.js';
+
 export const supabase=createClient('https://vdlmvlycofddjmdzffyd.supabase.co','sb_publishable_L7OvV-QDf12iD3L3IAAJag_jZ8QCK9z');
 const KEY='compra-em-dia-v1';
-let data;
-try{data=JSON.parse(localStorage.getItem(KEY));}catch{}
-export const state=data?.schema===1?data:{schema:1,household:null,records:{},queue:[],conflicts:[],name:'',lastSeen:Date.now()};
-export const session={user:null,status:'local',error:''};
-let callback=()=>{}; let syncing=false; let channel;
-export function onChange(fn){callback=fn;}
-export function persist(){localStorage.setItem(KEY,JSON.stringify(state));}
-export function records(kind){return Object.values(state.records).filter(r=>r.kind===kind&&!r.deleted).map(r=>({...r.data,id:r.id}));}
-export function get(id){const r=state.records[id];return r&&!r.deleted?{...r.data,id}:null;}
-export function put(kind,value){
- const id=value.id||crypto.randomUUID(); const old=state.records[id];
- const {id:_,...rest}=value;
- const row={id,kind,data:rest,deleted:false,version:old?.version||0,household_id:state.household?.id};
- state.records[id]=row;
- if(state.household){const q=state.queue.find(q=>q.id===id);if(q){q.data=rest;q.deleted=false;}else state.queue.push({...row});}
- persist();callback();void sync();return id;
+const fresh=()=>({schema:1,household:null,records:{},queue:[],conflicts:[],name:'',shopping:false,lastSeen:Date.now()});
+function load(key){
+ try {
+  const saved=JSON.parse(localStorage.getItem(key));
+  if(saved?.schema===1 && !saved.queue.some(row=>!Array.isArray(row.edits))) return saved;
+ } catch {}
+ return fresh();
 }
-export function remove(id){const r=state.records[id];if(!r)return;r.deleted=true;if(state.household){const q=state.queue.find(q=>q.id===id);if(q)q.deleted=true;else state.queue.push({...r});}persist();callback();void sync();}
-export function sectors(){return records('settings').find(x=>x.key==='sectors')?.values||DEFAULT_SECTORS;}
-export function setSectors(values){const old=records('settings').find(x=>x.key==='sectors');put('settings',{id:old?.id,key:'sectors',values});}
-function errorMessage(error){return /relation|schema cache|does not exist|PGRST|404/.test(error.message||'')?'O banco ainda precisa ser configurado. Consulte Configurações → Instalação do Supabase.':error.message||'Não foi possível sincronizar.';}
-export async function sync(){
- if(syncing||!session.user||!state.household||!navigator.onLine)return;
- syncing=true;session.status='syncing';callback();
- try{
-  while(state.queue.length){
-   const q=state.queue[0]; const {version,...fields}=q;
-   const result=version===0?await supabase.from('grocery_records').insert({...fields,version:1}).select().single():await supabase.from('grocery_records').update({data:q.data,deleted:q.deleted,version:version+1}).eq('id',q.id).eq('version',version).select().maybeSingle();
-   if(result.error)throw result.error;
-   if(!result.data){state.conflicts.push({...q,conflictAt:Date.now()});state.queue.shift();delete state.records[q.id];persist();continue;}
-   state.records[q.id]=result.data;state.queue.shift();persist();
+const local=load(KEY);
+export const state=local.household?fresh():local;
+export const session={user:null,status:'local',error:''};
+let key=KEY, callback=()=>{}, channel, epoch=0, running, operations, refresh=false;
+export function onChange(fn){callback=fn;}
+export function persist(){localStorage.setItem(key,JSON.stringify(state));}
+const visible=row=>row&&!row.deleted?{...row.data,id:row.id}:null;
+export function records(kind){return Object.values(state.records).filter(row=>row.kind===kind&&!row.deleted).map(visible);}
+export function get(id){return visible(state.records[id]);}
+
+export function batch(fn){
+ if(operations)return fn();
+ const before=state.records;
+ state.records={...before};
+ operations=new Map();
+ try {
+  const result=fn();
+  if(state.household&&operations.size)state.queue.push({id:crypto.randomUUID(),edits:[...operations.values()]});
+  persist();
+  return result;
+ } catch(error){
+  state.records=before;
+  throw error;
+ } finally {
+  operations=null;
+  callback();
+  void sync();
+ }
+}
+function stage(row){
+ const {household_id,...edit}=row;
+ const original=operations.get(row.id);
+ operations.set(row.id,{...edit,version:original?.version??edit.version});
+ state.records[row.id]={...row,version:(original?.version??edit.version)+(state.household?1:0)};
+}
+export function put(kind,value){
+ if(!operations)return batch(()=>put(kind,value));
+ const {id=crypto.randomUUID(),...data}=value;
+ const old=state.records[id];
+ stage({id,kind,data,deleted:false,version:old?.version||0,household_id:state.household?.id});
+ return id;
+}
+export function remove(id){
+ if(!operations)return batch(()=>remove(id));
+ const row=state.records[id];
+ if(row&&!row.deleted)stage({...row,deleted:true});
+}
+export function sectors(){
+ const setting=records('settings').find(row=>row.key==='sectors');
+ if(!setting)return DEFAULT_SECTORS;
+ if(setting.technologyAdded||setting.values.includes('Tecnologia'))return setting.values;
+ const values=[...setting.values],fallback=values.indexOf('Sem setor');
+ values.splice(fallback<0?values.length:fallback,0,'Tecnologia');
+ return values;
+}
+export function setSectors(values){put('settings',{id:records('settings').find(row=>row.key==='sectors')?.id,key:'sectors',values,technologyAdded:true});}
+
+function fail(error){return error?.message||'Não foi possível sincronizar.';}
+function rebuild(rows){
+ state.records=Object.fromEntries(rows.map(row=>[row.id,row]));
+ for(const entry of state.queue){
+  for(const edit of entry.edits)state.records[edit.id]={...edit,version:edit.version+1,household_id:state.household.id};
+ }
+}
+export function sync(){
+ if(!session.user||!state.household||!navigator.onLine)return;
+ if(running){refresh=true;return running;}
+ const generation=epoch, house=state.household.id;
+ running=(async()=>{
+  session.status='syncing';
+  callback();
+  while(state.queue.length&&generation===epoch){
+   const entry=state.queue[0];
+   const {data,error}=await supabase.rpc('grocery_apply_batch',{house,operation:entry.id,edits:entry.edits});
+   if(generation!==epoch)return;
+   if(error&&!['PT409','23505'].includes(error.code))throw error;
+   state.queue.shift();
+   if(error){
+    state.conflicts.push({...entry,message:error.code==='23505'?'Este cupom já consta no histórico.':error.message});
+   }else{
+    for(const row of data){
+     if(!state.queue.some(next=>next.edits.some(edit=>edit.id===row.id)))state.records[row.id]=row;
+    }
+   }
+   persist();
   }
-  const {data,error}=await supabase.from('grocery_records').select('*').eq('household_id',state.household.id);
-  if(error)throw error;
-  const pending=new Set(state.queue.map(q=>q.id));
-  for(const row of data)if(!pending.has(row.id))state.records[row.id]=row;
-  session.status='synced';session.error='';persist();
- }catch(e){session.status='error';session.error=errorMessage(e);}finally{syncing=false;callback();}
+  if(generation!==epoch)return;
+  const rows=[];
+  for(let offset=0;;offset+=500){
+   const {data,error}=await supabase.from('grocery_records').select('*').eq('household_id',house).order('id').range(offset,offset+499);
+   if(generation!==epoch)return;
+   if(error)throw error;
+   rows.push(...data);
+   if(data.length<500)break;
+  }
+  rebuild(rows);
+  session.status='synced';
+  session.error='';
+  persist();
+ })().catch(error=>{
+  if(generation===epoch){session.status='error';session.error=fail(error);}
+ }).finally(()=>{
+  running=null;
+  callback();
+  if(refresh){refresh=false;void sync();}
+ });
+ return running;
+}
+export function resolveConflict(index,retry){
+ const [entry]=state.conflicts.splice(index,1);
+ if(retry&&entry)batch(()=>{
+  for(const edit of entry.edits){
+   if(edit.deleted)remove(edit.id);
+   else put(edit.kind,{...edit.data,id:edit.id});
+  }
+ });
+ persist();
+ callback();
+}
+function subscribe(id){
+ channel?.unsubscribe();
+ channel=supabase.channel('house-'+id).on('postgres_changes',{event:'*',schema:'public',table:'grocery_records',filter:'household_id=eq.'+id},()=>void sync()).subscribe();
 }
 export async function connectHousehold(id){
- if(state.household&&state.household.id!==id)throw Error('Saia da casa atual antes de entrar em outra.');
- const {data,error}=await supabase.from('grocery_households').select('*').eq('id',id).single();if(error)throw error;
+ if(state.household?.id===id){subscribe(id);await sync();return;}
+ if(state.queue.length)throw Error('Sincronize as alterações pendentes antes de trocar de casa.');
+ const generation=epoch;
+ const {data,error}=await supabase.from('grocery_households').select('*').eq('id',id).single();
+ if(generation!==epoch)return;
+ if(error)throw Error(fail(error));
+ const prior=state.household;
+ epoch++;
  state.household=data;
- for(const r of Object.values(state.records))if(!r.household_id){r.household_id=id;r.version=0;state.queue.push({...r});}
- persist();
- channel?.unsubscribe();channel=supabase.channel('house-'+id).on('postgres_changes',{event:'*',schema:'public',table:'grocery_records',filter:'household_id=eq.'+id},()=>sync()).subscribe();
+ if(prior){state.records={};state.conflicts=[];persist();}
+ else {
+  const local=Object.values(state.records).filter(row=>!row.deleted);
+  state.records={};
+  for(let offset=0;offset<local.length;offset+=500)batch(()=>{
+   for(const {id,kind,data} of local.slice(offset,offset+500))put(kind,{...data,id});
+  });
+  persist();
+ }
+ subscribe(id);
  await sync();
 }
-export async function createHouse(name){const {data,error}=await supabase.rpc('grocery_create_house',{house_name:name});if(error)throw Error(errorMessage(error));await connectHousehold(data);}
-export async function joinHouse(code){const {data,error}=await supabase.rpc('grocery_join_house',{invite_code:code.trim()});if(error)throw Error(errorMessage(error));await connectHousehold(data);}
-export async function initialize(){
- const {data:{session:s}}=await supabase.auth.getSession();session.user=s?.user||null;
- if(session.user){
-  if(state.household)await connectHousehold(state.household.id).catch(e=>{session.error=errorMessage(e);session.status='error';});
-  else {const {data,error}=await supabase.from('grocery_households').select('*').limit(1);if(data?.[0])await connectHousehold(data[0].id);if(error)session.error=errorMessage(error);}
- }
+async function houseRPC(name,args){
+ const {data,error}=await supabase.rpc(name,args);
+ if(error)throw Error(fail(error));
+ await connectHousehold(data);
+}
+export const createHouse=name=>houseRPC('grocery_create_house',{house_name:name});
+export const joinHouse=code=>houseRPC('grocery_join_house',{invite_code:code.trim()});
+export async function listHouses(){
+ const {data,error}=await supabase.from('grocery_households').select('*').order('name');
+ if(error)throw Error(fail(error));
+ return data;
+}
+export async function manageHouse(action,target=null){
+ const {data,error}=await supabase.rpc('grocery_manage_house',{house:state.household.id,action,target});
+ if(error)throw Error(fail(error));
+ return data;
+}
+function applyDisplayName(user){
+ const name=user?.user_metadata?.groceries_display_name;
+ if(typeof name!=='string'||name===state.name)return;
+ state.name=name;
+ persist();
  callback();
- supabase.auth.onAuthStateChange((event,s)=>{session.user=s?.user||null;callback();if(event==='SIGNED_IN')setTimeout(()=>initializeHouse(),0);});
- window.addEventListener('online',sync);window.addEventListener('offline',()=>{session.status='offline';callback();});
+}
+let profileVersion=0;
+async function refreshDisplayName(){
+ const id=session.user?.id,version=profileVersion;
+ if(!id||!navigator.onLine)return;
+ const {data,error}=await supabase.auth.getUser();
+ if(!error&&data.user?.id===id&&session.user?.id===id&&version===profileVersion)applyDisplayName(data.user);
+}
+export async function saveDisplayName(value){
+ const name=value.trim().slice(0,60);
+ if(!name)throw Error('Digite seu nome.');
+ const id=session.user?.id;
+ if(!id){
+  state.name=name;persist();callback();return;
+ }
+ if(!navigator.onLine)throw Error('Conecte-se à internet para salvar o nome na conta.');
+ profileVersion++;
+ const {data,error}=await supabase.auth.updateUser({data:{groceries_display_name:name}});
+ profileVersion++;
+ if(error)throw Error(fail(error));
+ if(session.user?.id===id&&data.user?.id===id){
+  session.user=data.user;
+  applyDisplayName(data.user);
+ }
+}
+async function useAccount(user,importGuest=false){
+ if(user?.id===session.user?.id){
+  session.user=user;
+  applyDisplayName(user);
+  return;
+ }
+ const guest=importGuest&&!session.user&&!state.household?structuredClone(state):null;
+ epoch++;
+ channel?.unsubscribe();
+ session.user=user;
+ session.error='';
+ session.status='local';
+ key=user?KEY+':'+user.id:KEY;
+ Object.assign(state,load(key));
+ if(guest&&user&&!state.household&&!Object.keys(state.records).length){
+  Object.assign(state,guest);
+  localStorage.removeItem(KEY);
+  persist();
+ }
+ applyDisplayName(user);
+ callback();
+ if(!user)return;
+ void refreshDisplayName();
+ const generation=epoch;
+ if(state.household){subscribe(state.household.id);await sync();return;}
+ if(!navigator.onLine)return;
+ const houses=await listHouses();
+ if(epoch===generation&&houses.length)await connectHousehold(houses[0].id);
+}
+export async function initialize(onAuthEvent=()=>{}){
+ supabase.auth.onAuthStateChange((event,next)=>{
+  setTimeout(async()=>{
+   try { await useAccount(next?.user||null,event==='SIGNED_IN'); }
+   catch(error){session.error=fail(error);callback();}
+   onAuthEvent(event,next);
+  },0);
+ });
+ const {data:{session:auth}}=await supabase.auth.getSession();
+ await useAccount(auth?.user||null).catch(error=>{session.error=fail(error);callback();});
+ window.addEventListener('online',()=>{callback();void sync();void refreshDisplayName();});
+ document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void refreshDisplayName();});
+ window.addEventListener('offline',callback);
  setInterval(()=>{if(document.visibilityState==='visible')void sync();},15000);
 }
-async function initializeHouse(){if(state.household)await connectHousehold(state.household.id).catch(()=>{});else {const {data}=await supabase.from('grocery_households').select('*').limit(1);if(data?.[0])await connectHousehold(data[0].id);}callback();}
-export async function logout(){if(state.queue.length)throw Error('Sincronize as alterações pendentes antes de sair.');await supabase.auth.signOut();channel?.unsubscribe();state.household=null;state.records={};state.conflicts=[];persist();session.status='local';callback();}
+export async function logout(){
+ if(state.queue.length)throw Error('Sincronize as alterações pendentes antes de sair.');
+ const {error}=await supabase.auth.signOut({scope:'local'});
+ if(error)throw Error(fail(error));
+ if(session.user)localStorage.removeItem(KEY+':'+session.user.id);
+ await useAccount(null);
+}

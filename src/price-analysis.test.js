@@ -1,0 +1,96 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {purchasePrices,latestCatalogPrice,discountPerUnit,priceSeries,sectorChanges,latestByMarket,matchingPriceSeries,searchPriceSeries,priceChartTimeline,filterAndSortPrices} from './price-analysis.js';
+import {suggestSector,DEFAULT_SECTORS} from './domain.js';
+
+const product={id:'aveia',name:'Aveia',sector:'Mercearia',unit:'un',size:500,packUnit:'g'};
+const line={productId:product.id,name:product.name,unit:product.unit,quantity:1,size:product.size,packUnit:product.packUnit};
+test('usa o último preço e desconto da mesma embalagem, mesmo após corrigir o valor no histórico',()=>{
+ const purchases=[
+  {id:'new',market:'Mercado novo',date:'2026-11-16',lines:[{...line,size:1000,price:10},{...line,price:8,originalPrice:10}]},
+  {id:'old',market:'Mercado antigo',date:'2026-11-15',lines:[{...line,price:10}]}
+ ];
+ const price=latestCatalogPrice(product,purchasePrices(purchases));
+ assert.equal(price.market,'Mercado novo');
+ assert.equal(price.price,8);
+ assert.equal(discountPerUnit(price),2);
+ purchases[0].lines[1].price=7;
+ assert.equal(latestCatalogPrice(product,purchasePrices(purchases)).price,7);
+});
+test('variação usa compras distintas, separa embalagens e agrega por setor',()=>{
+ const purchases=[
+  {id:'new',market:'Novo',date:'2026-11-16',lines:[{...line,price:7},{...line,price:9},{...line,size:1000,price:11}]},
+  {id:'old',market:'Antigo',date:'2026-11-15',lines:[{...line,price:10}]}
+ ];
+ const series=priceSeries(purchasePrices(purchases),[product],DEFAULT_SECTORS);
+ assert.equal(series.length,2);
+ const comparable=series.find(item=>item.size===500);
+ assert.equal(comparable.points.length,2);
+ assert.equal(comparable.latest.price,8);
+ assert.equal(Math.round(comparable.change),-20);
+ assert.equal(series.find(item=>item.size===1000).change,null);
+ const [sector]=sectorChanges(series,DEFAULT_SECTORS);
+ assert.equal(sector.sector,'Mercearia');
+ assert.equal(sector.count,1);
+ assert.equal(Math.round(sector.change),-20);
+});
+test('tecnologia é sugerida para cabo USB e pilhas',()=>{
+ assert.equal(suggestSector('Cabo USB-C'),'Tecnologia');
+ assert.equal(suggestSector('Pilhas AAA'),'Tecnologia');
+});
+
+test('compara só o último preço pago por mercado e preserva a apresentação',()=>{
+ const purchases=[
+  {id:'a-new',market:'Mercado A',date:'2026-11-16',lines:[{...line,price:9}]},
+  {id:'b',market:'Mercado B',date:'2026-11-15',lines:[{...line,price:8},{...line,size:1000,price:4}]},
+  {id:'a-old',market:'Mercado A',date:'2026-11-12',lines:[{...line,price:5}]}
+ ];
+ const series=priceSeries(purchasePrices(purchases),[product],DEFAULT_SECTORS);
+ const matching=matchingPriceSeries(product,series);
+ assert.equal(matching.length,1);
+ assert.deepEqual(latestByMarket(matching[0]).map(p=>[p.market,p.price]),[['Mercado B',8],['Mercado A',9]]);
+});
+
+test('o gráfico começa no preço mais antigo mesmo se a busca mencionar o mercado mais novo',()=>{
+ const purchases=[
+  {id:'latest',market:'Mercado Novo',date:'2026-11-16',lines:[{...line,price:12}]},
+  {id:'old',market:'Outro mercado',date:'2026-09-01',lines:[{...line,price:8}]},
+ ];
+ const [filtered]=searchPriceSeries(priceSeries(purchasePrices(purchases),[product],DEFAULT_SECTORS),'Mercado Novo');
+ assert.deepEqual(priceChartTimeline(filtered).map(point=>point.price),[8,12]);
+ assert.equal(priceChartTimeline(filtered)[0].date,'2026-09-01');
+ assert.equal(filtered.change,50);
+});
+
+test('agrupa gramatura no nome e no cadastro sem misturar embalagens diferentes',()=>{
+ const farofa={name:'Farofa tradicional - Yoki 400g',unit:'pacote',quantity:1};
+ const purchases=[
+  {id:'current',market:'Assaí',date:'2026-11-10',lines:[{...farofa,price:10.59}]},
+  {id:'other',market:'Assaí',date:'2026-10-02',lines:[{...farofa,name:'Farofa tradicional - Yoki 400 g',size:400,packUnit:'g',price:11.89}]},
+  {id:'oldest',market:'Assaí',date:'2026-09-26',lines:[{...farofa,size:.4,packUnit:'kg',price:12.89}]},
+  {id:'larger',market:'Assaí',date:'2026-09-20',lines:[{...farofa,name:'Farofa tradicional - Yoki 500g',size:500,packUnit:'g',price:14}]}
+ ];
+ const groups=priceSeries(purchasePrices(purchases),[],DEFAULT_SECTORS);
+ assert.equal(groups.length,2);
+ const group=groups.find(item=>item.size===400);
+ assert.deepEqual(priceChartTimeline(group).map(point=>point.price),[12.89,11.89,10.59]);
+ assert.equal(matchingPriceSeries(farofa,groups).length,1);
+});
+
+test('filtra produtos que subiram e caíram e ordena valores nos dois sentidos',()=>{
+ const up={name:'Café',change:10,latest:{price:15}};
+ const down={name:'Arroz',change:-5,latest:{price:12}};
+ const unknown={name:'Banana',change:null,latest:{price:5}};
+ const series=[up,unknown,down];
+ assert.deepEqual(filterAndSortPrices(series,'up',{key:'product',direction:'ascending'}),[up]);
+ assert.deepEqual(filterAndSortPrices(series,'down',{key:'product',direction:'ascending'}),[down]);
+ assert.deepEqual(filterAndSortPrices(series,'all',{key:'latest',direction:'ascending'}),[unknown,down,up]);
+ assert.deepEqual(filterAndSortPrices(series,'all',{key:'change',direction:'descending'}),[up,down,unknown]);
+});
+
+test('exclui preços avulsos sem alterar os itens originais da compra',()=>{
+ const lines=[{...line,price:5,adHoc:true},{...line,price:8}];
+ const purchases=[{market:'Mercado',date:'2026-11-16',lines}];
+ assert.deepEqual(purchasePrices(purchases).map(entry=>entry.price),[8]);
+ assert.equal(purchases[0].lines.length,2);
+});
