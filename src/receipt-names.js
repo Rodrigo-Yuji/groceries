@@ -1,16 +1,37 @@
 import {normalize} from './domain.js';
+import {expandAbbreviations,matchKnownName} from './receipt-expansion.js';
 
 export const marketAliasKey=name=>normalize(name)?'market:'+normalize(name):'';
 
-export function receiptName(raw,products,aliases,history=[]){
- const key=normalize(raw);
+export const barcodeAliasKey=code=>validBarcode(code)?'gtin:'+validBarcode(code):'';
+const internalAlias=key=>/^(market|request-search|gtin):/.test(key);
+
+// Names the household already uses, with how each was written on past receipts.
+export function knownNames(products,aliases,history=[]){
+ const names=products.map(product=>({text:product.name,name:product.name,package:product,sized:product.size>0&&['g','kg','ml','L'].includes(product.packUnit)}));
+ for(const alias of aliases)if(alias.key&&!internalAlias(alias.key))names.push({text:alias.key,name:alias.name});
+ for(const line of history.flatMap(purchase=>purchase.lines||[])){
+  if(line.name&&line.sourceName&&!line.adHoc)names.push({text:line.sourceName,name:line.name,package:line});
+ }
+ return names;
+}
+
+export function receiptName(raw,products,aliases,history=[],barcode=''){
+ const key=normalize(raw),code=validBarcode(barcode);
+ const lines=history.flatMap(p=>p.lines||[]);
+ // 1. What the household already decided: same text, or the same barcode on any receipt.
  const learned=aliases.find(row=>row.key===key)?.name||
-  history.flatMap(p=>p.lines||[]).find(line=>normalize(line.sourceName)===key&&normalize(line.name)!==key)?.name;
+  (code&&aliases.find(row=>row.key==='gtin:'+code)?.name)||
+  (code&&lines.find(line=>validBarcode(line.barcode)===code&&line.name)?.name)||
+  lines.find(line=>normalize(line.sourceName)===key&&normalize(line.name)!==key)?.name;
  if(learned)return learned;
  const exact=products.find(product=>normalize(product.name)===key);
- const suggestion=expandReceiptName(raw);
  if(exact&&exact.name!==raw)return exact.name;
- return products.find(product=>normalize(product.name)===normalize(suggestion))?.name||suggestion;
+ // 2. Hand-written rules for common descriptions.
+ const suggestion=expandReceiptName(raw);
+ if(suggestion!==String(raw||'').trim().replace(/\s+/g,' '))return products.find(product=>normalize(product.name)===normalize(suggestion))?.name||suggestion;
+ // 3. The same product written differently (another market, another abbreviation).
+ return matchKnownName(raw,knownNames(products,aliases,history))||suggestion;
 }
 
 const receiptRules=[
@@ -125,31 +146,77 @@ function withPackage(line,display,remoteSize){
  return {...line,...pack,name:shown?display:(display+' '+text).slice(0,120)};
 }
 
+// Open Food Facts covers food; its sister databases cover hygiene and cleaning products.
+const barcodeSources=['https://world.openfoodfacts.org','https://world.openbeautyfacts.org','https://world.openproductsfacts.org'];
+const barcodeFields='code,product_name_pt,product_name,generic_name_pt,lang,countries_tags,brands,quantity,product_quantity,product_quantity_unit';
+const CACHE_KEY='groceries-barcode-names-v1',DAY=864e5;
 const barcodeNames=new Map();
-export async function suggestReceiptNames(lines,products,aliases,history,fetchProduct=fetch){
- const suggested=lines.map(line=>({...line,sourceName:line.name,name:receiptName(line.name,products,aliases,history)}));
- const candidates=suggested.filter(line=>line.name===line.sourceName&&validBarcode(line.barcode)&&
-  !aliases.some(alias=>alias.key===normalize(line.sourceName)));
- const codes=[...new Set(candidates.map(line=>validBarcode(line.barcode)))].slice(0,16);
- const deadline=AbortSignal.timeout(3500);
- await Promise.all(codes.map(async code=>{
-  if(barcodeNames.has(code))return;
+function cachedBarcode(code){
+ if(barcodeNames.has(code))return barcodeNames.get(code);
+ try{
+  const entry=JSON.parse(globalThis.localStorage?.getItem(CACHE_KEY)||'{}')[code];
+  if(entry&&Date.now()-entry.at<(entry.label?90:7)*DAY)return entry.label?{label:entry.label,quantity:entry.quantity}:null;
+ }catch{}
+ return undefined;
+}
+function storeBarcode(code,entry){
+ barcodeNames.set(code,entry);
+ try{
+  const storage=globalThis.localStorage;
+  if(!storage)return;
+  const all=JSON.parse(storage.getItem(CACHE_KEY)||'{}');
+  all[code]={...(entry||{}),at:Date.now()};
+  const codes=Object.keys(all);
+  for(const old of codes.slice(0,Math.max(0,codes.length-800)))delete all[old];
+  storage.setItem(CACHE_KEY,JSON.stringify(all));
+ }catch{}
+}
+function productLabel(product,code){
+ if(product?.code!==code)return null;
+ const brazilian=(product.countries_tags||[]).includes('en:brazil');
+ const name=String(product.product_name_pt||((product.lang==='pt'||brazilian)?product.product_name:'')||product.generic_name_pt||'').trim();
+ if(!name)return null;
+ const brand=String(product.brands||'').split(',')[0].trim(),quantity=String(product.quantity||(product.product_quantity&&product.product_quantity_unit?product.product_quantity+' '+product.product_quantity_unit:'')).trim();
+ const label=[name,brand&&!normalize(name).includes(normalize(brand))?' - '+brand:''].join('');
+ return label.length<=120?{label,quantity}:null;
+}
+async function lookupBarcode(code,fetchProduct,signal){
+ const cached=cachedBarcode(code);
+ if(cached!==undefined)return cached;
+ let answered=0;
+ for(const source of barcodeSources){
   try{
-   const url='https://world.openfoodfacts.org/api/v2/product/'+code+'.json?fields=code,product_name_pt,product_name,lang,brands,quantity,product_quantity,product_quantity_unit';
-   const response=await fetchProduct(url,{signal:deadline,credentials:'omit',referrerPolicy:'no-referrer'});
-   if(!response.ok)return;
-   const {product}=await response.json();
-   if(product?.code!==code)return;
-   const name=String(product.product_name_pt||(product.lang==='pt'?product.product_name:'')||'').trim();
-   if(!name)return;
-   const brand=String(product.brands||'').split(',')[0].trim(),quantity=String(product.quantity||(product.product_quantity&&product.product_quantity_unit?product.product_quantity+' '+product.product_quantity_unit:'')).trim();
-   const includes=value=>normalize(name).includes(normalize(value));
-   const label=[name,brand&&!includes(brand)?' - '+brand:''].join('');
-   if(label.length<=120)barcodeNames.set(code,{label,quantity});
-  }catch{}
- }));
+   const response=await fetchProduct(source+'/api/v2/product/'+code+'.json?fields='+barcodeFields,{signal,credentials:'omit',referrerPolicy:'no-referrer'});
+   if(response.status===404){answered++;continue;}
+   if(!response.ok)continue;
+   answered++;
+   const found=productLabel((await response.json()).product,code);
+   if(found){storeBarcode(code,found);return found;}
+  }catch{if(signal.aborted)break;}
+ }
+ // Remember a miss only when every database answered, so timeouts are retried later.
+ if(answered===barcodeSources.length)storeBarcode(code,null);
+ return null;
+}
+
+const looksTyped=text=>/[a-zà-ú]/.test(String(text||''));
+export async function suggestReceiptNames(lines,products,aliases,history,fetchProduct=fetch){
+ const suggested=lines.map(line=>({...line,sourceName:line.name,name:receiptName(line.name,products,aliases,history,line.barcode)}));
+ const candidates=suggested.filter(line=>line.name===line.sourceName&&validBarcode(line.barcode)&&
+  !aliases.some(alias=>alias.key===normalize(line.sourceName)||alias.key===barcodeAliasKey(line.barcode)));
+ const codes=[...new Set(candidates.map(line=>validBarcode(line.barcode)))].slice(0,24);
+ const deadline=AbortSignal.timeout(5000);
+ const remote=new Map(await Promise.all(codes.map(async code=>[code,await lookupBarcode(code,fetchProduct,deadline)])));
+ const known=knownNames(products,aliases,history);
  return suggested.map(line=>{
-  const remote=candidates.includes(line)?barcodeNames.get(validBarcode(line.barcode)):null;
-  return withPackage(line,remote?.label||line.name,remote?.quantity);
+  const found=candidates.includes(line)?remote.get(validBarcode(line.barcode)):null;
+  if(found){
+   // Prefer the household's own name for the same product, if it already has one.
+   const own=matchKnownName(found.label+' '+found.quantity,known);
+   return withPackage(line,own||found.label,found.quantity);
+  }
+  // 4. Last resort: spell out the abbreviations of descriptions nobody has seen before.
+  const expanded=line.name===line.sourceName&&!looksTyped(line.sourceName)?expandAbbreviations(line.sourceName):null;
+  return withPackage(line,expanded||line.name);
  });
 }
