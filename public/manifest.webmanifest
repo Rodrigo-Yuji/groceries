@@ -11,14 +11,26 @@
   "icons": [
     {
       "purpose": "any",
+      "type": "image/svg+xml",
+      "src": "icon.svg",
+      "sizes": "any"
+    },
+    {
+      "purpose": "any",
       "type": "image/png",
       "src": "icon-192.png",
       "sizes": "192x192"
     },
     {
-      "purpose": "any maskable",
+      "purpose": "any",
       "type": "image/png",
       "src": "icon-512.png",
+      "sizes": "512x512"
+    },
+    {
+      "purpose": "maskable",
+      "type": "image/png",
+      "src": "icon-maskable-512.png",
       "sizes": "512x512"
     }
   ]
