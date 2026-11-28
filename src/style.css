@@ -580,3 +580,12 @@ fieldset{min-width:0;border:1px solid var(--border);border-radius:var(--radius)}
 .list-toolbar{flex-wrap:wrap}
 .list-toolbar .search{flex:1 1 200px;width:auto}
 .nav-item span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- ControlAI export option ---------- */
+.controlai-option{display:grid!important;grid-template-columns:22px minmax(0,1fr);align-items:start;gap:12px!important;margin:14px 0 4px;padding:14px 16px;border:1px solid var(--jade-soft);border-radius:var(--radius);background:var(--mint);cursor:pointer;font-weight:500!important;color:var(--ink)!important}
+.controlai-option:has(input:checked){border-color:#b7d6c0;background:#e4f1e6}
+.controlai-option input{width:20px;height:20px;margin:1px 0 0}
+.controlai-option strong{display:block;font-size:.95rem}
+.controlai-option small{display:block;margin-top:2px;color:var(--muted);font-size:.8rem;line-height:1.4}
+.modal .controlai-option{margin-top:12px}
+.controlai-tag{display:inline-block;margin-left:4px;padding:0 7px;border-radius:99px;background:var(--blue-soft);color:var(--blue);font-size:.7rem;font-weight:700;vertical-align:1px}
